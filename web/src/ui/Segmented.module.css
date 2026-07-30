@@ -1,6 +1,14 @@
-.group { display: flex; border: 1px solid var(--border); border-radius: 3px; overflow: hidden; }
+.group {
+  display: flex;
+  flex-wrap: nowrap;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+  min-width: 0;
+}
 .item {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
   border: none;
   background: var(--surface);
   color: var(--muted);
@@ -10,8 +18,38 @@
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .item + .item { border-left: 1px solid var(--border); }
 .item:hover:not(.active) { background: var(--soft); }
 .active { background: var(--btn); color: var(--btnText); }
 .mono { font-family: var(--font-mono); font-size: 10.5px; }
+
+/* Narrow panes (image detail, small upload fields) */
+.compact {
+  flex-wrap: wrap;
+  overflow: visible;
+  gap: 0;
+}
+.compact .item {
+  flex: 1 1 auto;
+  padding: 5px 8px;
+  font-size: 10.5px;
+}
+.compact .mono { font-size: 10px; }
+.compact .item + .item { border-left: 1px solid var(--border); }
+/* When a row wraps, drop left border on the first item of each visual line is hard;
+   use a uniform grid-like gap via border on all sides of items instead. */
+@media (max-width: 420px) {
+  .compact {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(4.5rem, 1fr));
+    gap: 0;
+  }
+  .compact .item + .item { border-left: none; }
+  .compact .item {
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+}

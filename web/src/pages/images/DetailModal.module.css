@@ -1,8 +1,7 @@
 .mask {
   position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 40;
-  display: flex; align-items: center; justify-content: center; padding: 20px;
+  display: flex; align-items: center; justify-content: center; padding: 16px;
   animation: fadeIn 0.15s;
-  /* 自身不滚动；勿设 touch-action:none，否则子层 paneScroll 在部分浏览器无法 pan */
   overflow: hidden;
   overscroll-behavior: none;
 }
@@ -13,201 +12,783 @@
   color: #fff; font-size: 15px; cursor: pointer; z-index: 41;
 }
 .navBtn:hover { background: rgba(0, 0, 0, 0.6); }
-.navPrev { left: 16px; }
-.navNext { right: 16px; }
+.navPrev { left: 12px; }
+.navNext { right: 12px; }
+
 .box {
-  display: flex; background: var(--surface); border: 1px solid var(--border);
-  border-radius: 4px; max-width: 960px; width: 100%;
-  /* 明确高度上限，才能让右侧 paneScroll 成为真正的 overflow 容器 */
-  height: min(90vh, 860px); max-height: 90vh;
+  display: flex;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  max-width: 1280px;
+  width: 100%;
+  height: min(92vh, 900px);
+  max-height: 92vh;
   overflow: hidden;
   overscroll-behavior: contain;
   min-height: 0;
 }
 .handle { display: none; }
 .preview {
-  flex: 1.15; min-width: 0; min-height: 0; background: var(--soft);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
-  border-right: 1px solid var(--border); position: relative;
+  flex: 1.1;
+  min-width: 0;
+  min-height: 0;
+  background: var(--soft);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-right: 1px solid var(--border);
+  position: relative;
   overflow: hidden;
 }
-.previewImg { max-width: 100%; max-height: min(72vh, 100%); object-fit: contain; }
+.previewImg {
+  max-width: 100%;
+  max-height: min(80vh, 100%);
+  object-fit: contain;
+}
 .pos {
-  position: absolute; bottom: 10px;
-  font-family: var(--font-mono); font-size: 10px; color: var(--muted);
-  background: var(--surface); border: 1px solid var(--border); border-radius: 2px; padding: 1px 7px;
+  position: absolute;
+  bottom: 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 1px 7px;
 }
+
 .pane {
-  flex: 1; min-width: 320px; max-width: 420px;
-  display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+  flex: 0 0 min(640px, 52%);
+  width: min(640px, 52%);
+  max-width: 680px;
+  min-width: 420px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
+
+.headRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  flex: none;
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.headLeft { min-width: 0; flex: 1; }
+.kicker {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.14em;
+  margin-bottom: 4px;
+}
+.nameRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.name {
+  font-size: 14px;
+  font-weight: 700;
+  word-break: break-all;
+  line-height: 1.3;
+}
+.renameLink {
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px;
+  text-decoration: underline;
+  flex: none;
+}
+.renameLink:hover { color: var(--text); }
+.renameRow { display: flex; gap: 6px; }
+.renameInput {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  padding: 6px 9px;
+  outline: none;
+}
+.renameSave {
+  border: none;
+  border-radius: 3px;
+  background: var(--btn);
+  color: var(--btnText);
+  padding: 0 12px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.closeBtn {
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 2px 6px;
+  line-height: 1;
+  flex: none;
+}
+.closeBtn:hover { color: var(--text); }
+
+.headChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+.accessChipBtn {
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  line-height: 0;
+}
+.accessChipBtn:hover .accessChip {
+  color: var(--text);
+  border-color: var(--text);
+}
+
 .paneScroll {
   flex: 1 1 0;
   min-height: 0;
-  max-height: 100%;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
-  padding: 14px 16px 12px;
-  display: flex; flex-direction: column; gap: 12px;
+  padding: 14px 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  scroll-padding-top: 8px;
+  scroll-padding-bottom: 16px;
 }
-.headRow {
-  display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
-  flex: none; padding: 12px 16px 10px;
+
+/* —— 桌面 2×2：用分隔线分区，不用卡片套卡片 —— */
+.rowTop,
+.rowBottom {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 20px;
+  align-items: stretch;
+  min-width: 0;
+  width: 100%;
+}
+.rowTop {
+  padding-bottom: 14px;
+  margin-bottom: 14px;
   border-bottom: 1px solid var(--border);
-  background: var(--surface);
 }
-.headLeft { min-width: 0; flex: 1; }
-.kicker { font-family: var(--font-mono); font-size: 10px; color: var(--muted); letter-spacing: 0.14em; margin-bottom: 4px; }
-.nameRow { display: flex; align-items: baseline; gap: 8px; }
-.name { font-size: 14px; font-weight: 700; word-break: break-all; line-height: 1.3; }
-.renameLink { border: none; background: none; color: var(--muted); font-size: 11px; cursor: pointer; padding: 2px; text-decoration: underline; flex: none; }
-.renameLink:hover { color: var(--text); }
-.renameRow { display: flex; gap: 6px; }
-.renameInput {
-  flex: 1; min-width: 0; border: 1px solid var(--muted); border-radius: 3px;
-  background: var(--bg); color: var(--text); font-family: var(--font-mono); font-size: 12.5px; padding: 6px 9px; outline: none;
+.rowBottomSolo {
+  grid-template-columns: 1fr;
 }
-.renameSave { border: none; border-radius: 3px; background: var(--btn); color: var(--btnText); padding: 0 12px; font-size: 11.5px; font-weight: 700; cursor: pointer; }
-.closeBtn { border: none; background: none; color: var(--muted); font-size: 18px; cursor: pointer; padding: 2px 6px; line-height: 1; flex: none; }
-.closeBtn:hover { color: var(--text); }
+
+/* 仅一层分区：标题 + 内容，无外框 */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+/* 兼容旧 class：扁平化，不再是「框」 */
+.sectionCard {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
+/* 桌面列间竖线 */
+.rowTop > .section:first-child,
+.rowBottom > .section:first-child {
+  padding-right: 16px;
+  border-right: 1px solid var(--border);
+}
+.rowBottomSolo > .section:first-child {
+  padding-right: 0;
+  border-right: none;
+}
+
+.accessCell,
+.statsCell {
+  max-height: min(42vh, 380px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  min-width: 0;
+}
+.sectionHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  flex: none;
+}
+.sectionTitle {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+.sectionSub {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 500;
+  text-align: right;
+  min-width: 0;
+}
+
+/* 元信息：纯网格，无内框 */
 .metaTable {
-  display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; font-size: 12px;
-  border: 1px solid var(--border); border-radius: 3px; padding: 10px 12px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px 12px;
+  font-size: 12px;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  min-width: 0;
+  width: 100%;
 }
 .metaKey { color: var(--muted); }
-.metaVal { font-family: var(--font-mono); font-size: 11.5px; min-width: 0; }
+.metaVal {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .metaMuted { color: var(--muted); }
 .visToggle {
-  justify-self: start; border: 1px solid var(--border); border-radius: 2px;
-  background: var(--surface); color: var(--text); padding: 2px 9px;
-  font-size: 10.5px; font-weight: 600; cursor: pointer; font-family: var(--font-mono);
+  justify-self: start;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  max-width: 100%;
 }
 .visToggle:hover { background: var(--soft); }
-.expiryEdit { display: flex; flex-direction: column; gap: 6px; }
+
+/* 链接行：grid 保证「复制」始终在行内可见 */
+.copySection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+.copyCol {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+.copyRow {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr) auto;
+  align-items: stretch;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--bg);
+}
+.copyKind {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  min-width: 0;
+  padding: 0 4px;
+  box-sizing: border-box;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+  border-right: 1px solid var(--border);
+  background: var(--soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.copyText {
+  min-width: 0;
+  padding: 7px 8px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  align-self: center;
+}
+.copyBtn {
+  border: none;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  min-width: 2.75rem;
+  /* 触控友好；防止被挤出视口 */
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.copyBtn:hover { background: var(--soft); }
+.qrCol {
+  flex: none;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.qrBox {
+  width: 72px;
+  height: 72px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+  background: #fff;
+  flex: none;
+}
+.qrBox :global(svg) {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.accessChip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 2px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--soft);
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.accessChipOn {
+  color: var(--text);
+  border-color: var(--text);
+  background: var(--surface);
+}
+
+.accessGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.accessField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+}
+.accessField + .accessField {
+  border-top: 1px dashed var(--border);
+  padding-top: 10px;
+}
+.accessFieldHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.accessFieldLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+.helpTip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--soft);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  line-height: 1;
+  cursor: help;
+  flex: none;
+  user-select: none;
+}
+.helpTip:hover,
+.helpTip:focus-visible,
+.helpTip[aria-expanded='true'] {
+  color: var(--text);
+  border-color: var(--text);
+  outline: none;
+}
+/* portal 到 body：不受弹层 overflow 裁切 */
+.helpTipBubble {
+  position: fixed;
+  z-index: 100;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1.45;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  white-space: normal;
+  word-break: break-word;
+  pointer-events: auto;
+  animation: fadeIn 0.1s ease-out;
+}
+.accessFieldValue {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  text-align: right;
+  min-width: 0;
+}
+/* 完整说明：默认折叠，不占主表单高度 */
+.accessNotes {
+  margin: 0;
+  border-top: 1px dashed var(--border);
+  padding-top: 8px;
+}
+.accessNotes > summary {
+  list-style: none;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.accessNotes > summary::-webkit-details-marker { display: none; }
+.accessNotes > summary::before {
+  content: '▸';
+  font-size: 10px;
+  transition: transform 0.12s;
+}
+.accessNotes[open] > summary::before { transform: rotate(90deg); }
+.accessNotes > summary:hover { color: var(--text); }
+.accessNotesList {
+  margin: 6px 0 0;
+  padding: 0 0 0 1.1em;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+.accessNotesList li + li { margin-top: 4px; }
+.accessNotesList strong {
+  color: var(--text);
+  font-weight: 600;
+}
+.accessPwActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.accessPwActions .renameSave {
+  padding: 4px 12px;
+  min-height: 28px;
+}
+.accessPwActions .removeExpiry {
+  padding: 4px 10px;
+}
+
 .removeExpiry {
-  align-self: start; border: 1px solid var(--border); border-radius: 2px;
-  background: var(--surface); color: var(--text); padding: 4px 10px;
-  font-size: 11px; font-weight: 600; cursor: pointer;
+  align-self: start;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
 }
 .removeExpiry:hover { background: var(--soft); }
-.removeExpiry:disabled { opacity: 0.5; cursor: not-allowed; }
-.expiryWarn { font-size: 11px; color: var(--muted); line-height: 1.4; }
-.copySection { display: flex; gap: 10px; }
-.copyCol { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.copyRow { display: flex; align-items: center; border: 1px solid var(--border); border-radius: 3px; overflow: hidden; }
-.copyKind {
-  flex: none; width: 56px; padding: 5px 7px; box-sizing: border-box;
-  font-family: var(--font-mono); font-size: 9px; color: var(--muted); letter-spacing: 0.04em;
-  border-right: 1px solid var(--border); background: var(--soft);
+.removeExpiry:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
-.copyText { flex: 1; min-width: 0; padding: 5px 8px; font-family: var(--font-mono); font-size: 10px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.copyBtn { flex: none; border: none; border-left: 1px solid var(--border); background: var(--surface); color: var(--text); padding: 5px 10px; font-size: 10.5px; font-weight: 600; cursor: pointer; }
-.copyBtn:hover { background: var(--soft); }
-.qrCol { flex: none; display: flex; flex-direction: column; gap: 6px; }
-.qrBox { width: 80px; height: 80px; border: 1px solid var(--border); border-radius: 3px; overflow: hidden; background: #fff; }
-.qrBox :global(svg) { width: 100%; height: 100%; display: block; }
-.accessSection { display: flex; flex-direction: column; gap: 6px; }
-.accessTotal {
-  font-family: var(--font-mono); font-size: 12px; color: var(--text);
+
+.accessSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
 }
 .accessEmpty {
-  font-size: 12px; color: var(--muted); padding: 4px 0;
+  font-size: 12px;
+  color: var(--muted);
+  padding: 8px 0;
 }
 .accessBars {
-  display: flex; align-items: flex-end; gap: 2px;
-  height: 36px; padding: 2px 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 72px;
+  padding: 4px 0;
+  flex: 1;
+  min-height: 56px;
+  min-width: 0;
 }
 .accessBar {
-  flex: 1; min-width: 0;
-  background: var(--btn); opacity: 0.75;
+  flex: 1;
+  min-width: 0;
+  background: var(--btn);
+  opacity: 0.75;
   border-radius: 1px 1px 0 0;
 }
 .accessBar:hover { opacity: 1; }
 
-/* Collapsible blocks for secondary controls */
-.fold {
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  background: var(--bg);
-  overflow: hidden;
-}
-.fold > summary {
-  list-style: none;
-  cursor: pointer;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 9px 12px;
-  font-size: 12.5px;
-  font-weight: 600;
-  user-select: none;
-}
-.fold > summary::-webkit-details-marker { display: none; }
-.fold > summary::after {
-  content: '▸';
-  font-size: 11px;
-  color: var(--muted);
-  transition: transform 0.15s;
-}
-.fold[open] > summary::after { transform: rotate(90deg); }
-.foldSummaryHint {
-  font-weight: 500;
-  font-size: 11px;
-  color: var(--muted);
-  margin-left: auto;
-  margin-right: 6px;
-}
-.foldBody {
-  padding: 0 12px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  border-top: 1px solid var(--border);
-  padding-top: 10px;
-}
-
 .footRow {
   flex: none;
-  display: flex; gap: 8px;
-  padding: 10px 16px 12px;
+  display: flex;
+  gap: 8px;
+  padding: 10px 14px 12px;
   border-top: 1px solid var(--border);
   background: var(--surface);
+  box-shadow: 0 -6px 12px -10px rgba(0, 0, 0, 0.16);
+  z-index: 1;
 }
 .footRow > * { flex: 1; }
 .footBtn {
-  border: 1px solid var(--border); border-radius: 3px; background: var(--surface); color: var(--text);
-  padding: 8px 0; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 8px 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
 }
 .footBtn:hover { background: var(--soft); }
 .moveSelect {
-  border: 1px solid var(--border); border-radius: 3px; background: var(--bg); color: var(--text);
-  font-family: inherit; font-size: 12.5px; padding: 8px 10px; outline: none; cursor: pointer;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12.5px;
+  padding: 8px 10px;
+  outline: none;
+  cursor: pointer;
 }
 
+/* 中等宽度：内层单列 */
+@media (max-width: 1100px) {
+  .box { max-width: 1000px; }
+  .pane {
+    flex: 0 0 min(420px, 48%);
+    width: min(420px, 48%);
+    min-width: 340px;
+    max-width: 460px;
+  }
+  .rowTop,
+  .rowBottom {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .rowTop {
+    padding-bottom: 14px;
+    margin-bottom: 14px;
+  }
+  .rowTop > .section:first-child,
+  .rowBottom > .section:first-child {
+    padding-right: 0;
+    border-right: none;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .rowBottomSolo > .section:first-child {
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+  .accessCell,
+  .statsCell {
+    max-height: none;
+  }
+  .copySection {
+    flex-direction: column;
+  }
+  .qrCol {
+    flex-direction: row;
+    gap: 8px;
+  }
+  .qrBox {
+    width: 72px;
+    height: 72px;
+  }
+}
+
+/* 移动端 */
 @media (max-width: 768px) {
-  .mask { padding: 0; align-items: flex-end; }
+  .mask {
+    padding: 0;
+    align-items: flex-end;
+  }
   .box {
-    flex-direction: column; height: min(92vh, 100%); max-height: 92vh;
+    flex-direction: column;
+    height: min(94vh, 100%);
+    max-height: 94vh;
     border-radius: 12px 12px 0 0;
-    border-bottom: none; width: 100%;
+    border-bottom: none;
+    width: 100%;
+    max-width: none;
   }
   .handle {
-    display: block; width: 36px; height: 4px; border-radius: 2px;
-    background: var(--border); margin: 8px auto 0; flex: none;
+    display: block;
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+    margin: 8px auto 0;
+    flex: none;
   }
   .preview {
-    min-height: 160px; max-height: 28vh; border-right: none;
-    border-bottom: 1px solid var(--border); flex: none;
+    min-height: 120px;
+    max-height: 22vh;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    flex: none;
   }
-  .previewImg { max-height: 26vh; }
-  .pane { min-width: 0; max-width: none; flex: 1 1 auto; min-height: 0; }
-  .paneScroll { padding: 12px 14px; }
-  .headRow { padding: 8px 14px; }
-  .footRow { padding: 10px 14px 14px; }
+  .previewImg { max-height: 20vh; }
+  .pane {
+    min-width: 0;
+    max-width: none;
+    width: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .paneScroll {
+    padding: 10px 12px 16px;
+    gap: 0;
+    overflow-x: hidden;
+  }
+  .rowTop,
+  .rowBottom {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    width: 100%;
+    max-width: 100%;
+  }
+  .rowTop {
+    padding-bottom: 14px;
+    margin-bottom: 14px;
+  }
+  .rowTop > .section:first-child,
+  .rowBottom > .section:first-child {
+    padding-right: 0;
+    border-right: none;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .rowBottom > .section:last-child {
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+  .accessCell,
+  .statsCell {
+    max-height: none;
+    overflow: visible;
+  }
+  .headRow { padding: 8px 12px; }
+  .footRow { padding: 10px 12px 14px; }
   .navBtn { display: none; }
-  .copySection { flex-direction: column; }
+
+  /* 链接：复制按钮固定触控宽度，URL 截断 */
+  .copyRow {
+    grid-template-columns: 2.75rem minmax(0, 1fr) 3.25rem;
+  }
+  .copyKind {
+    font-size: 8px;
+    padding: 0 2px;
+  }
+  .copyText {
+    padding: 8px 6px;
+    font-size: 10px;
+  }
+  .copyBtn {
+    min-width: 3.25rem;
+    min-height: 40px;
+    padding: 0 8px;
+    font-size: 12px;
+  }
+  .qrCol {
+    flex-direction: row;
+    align-items: center;
+  }
+  .qrBox {
+    width: 64px;
+    height: 64px;
+  }
+  .accessBars {
+    height: 48px;
+    min-height: 48px;
+  }
+  .metaVal {
+    word-break: break-all;
+  }
 }

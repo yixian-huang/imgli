@@ -41,7 +41,7 @@ export default {
   expiry30d: '30 days',
   maxViews: 'View limit',
   maxViewsUnlimited: 'Unlimited',
-  maxViews1: 'Burn after read',
+  maxViews1: '1 view',
   maxViews3: '3 views',
   maxViews10: '10 views',
 

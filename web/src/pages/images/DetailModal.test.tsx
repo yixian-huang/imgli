@@ -68,21 +68,23 @@ beforeEach(() => {
 })
 afterEach(() => vi.unstubAllGlobals())
 
-it('渲染元信息（详情补 mime/upload_ip）、位置指示与二维码', async () => {
+it('单栏连续：元信息、链接二维码、访问控制同屏', async () => {
   renderModal()
+  expect(await screen.findByText('1920 × 1080')).toBeInTheDocument()
+  expect(screen.getByText('2 / 3')).toBeInTheDocument()
   expect(await screen.findByText('image/png')).toBeInTheDocument()
   expect(screen.getByText(/203\.0\.113\.42/)).toBeInTheDocument()
   expect(screen.getByText(/仅自己可见/)).toBeInTheDocument()
-  expect(screen.getByText('2 / 3')).toBeInTheDocument()
-  expect(screen.getByText('1920 × 1080')).toBeInTheDocument()
-  expect(document.querySelector('svg')).toBeTruthy() // uqr 二维码
+  expect(screen.getAllByRole('button', { name: '复制' })).toHaveLength(6)
+  expect(document.querySelector('svg')).toBeTruthy()
+  expect(screen.getByPlaceholderText('输入或生成口令')).toBeInTheDocument()
+  expect(screen.getByText('访问控制')).toBeInTheDocument()
 })
 
 it('ACCESS:总访问与近 30 天柱图', async () => {
   mockBackend({ stats: { total: 5, daily: makeDaily({ 10: 2, 20: 3 }) } })
   renderModal()
   expect(await screen.findByText(/ACCESS/)).toBeInTheDocument()
-  // summary + body may both mention total views
   expect(screen.getAllByText(/总访问\s*5/).length).toBeGreaterThan(0)
   expect(document.querySelectorAll('[class*="accessBars"] > [class*="accessBar"]').length).toBe(30)
 })
@@ -94,10 +96,10 @@ it('ACCESS:全 0 显示暂无访问', async () => {
   expect(document.querySelectorAll('[class*="accessBars"] > [class*="accessBar"]')).toHaveLength(0)
 })
 
-it('ACCESS:请求失败静默隐藏区块', async () => {
+it('ACCESS:请求失败静默隐藏统计区块', async () => {
   mockBackend({ stats: 'fail' })
   renderModal()
-  await screen.findByText('image/png')
+  await screen.findByText('1920 × 1080')
   await waitFor(() => {
     expect(screen.queryByText(/ACCESS/)).not.toBeInTheDocument()
     expect(screen.queryByText(/总访问/)).not.toBeInTheDocument()
@@ -143,7 +145,6 @@ it('复制行含分享页共 6 条（无短链），加入回收站两击后 DEL
   const user = userEvent.setup()
   const { onClose } = renderModal()
   await screen.findByText('b.png')
-  // url + markdown + html + bbcode + thumb + share page
   expect(screen.getAllByRole('button', { name: '复制' })).toHaveLength(6)
   await user.click(screen.getByRole('button', { name: '加入回收站' }))
   await user.click(screen.getByRole('button', { name: '确认删除？' }))
@@ -162,24 +163,43 @@ it('重命名编辑态方向键不切图', async () => {
   input.focus()
   fireEvent.keyDown(document, { key: 'ArrowLeft' })
   expect(onNavigate).not.toHaveBeenCalled()
-  fireEvent.keyDown(document, { key: 'Escape' }) // Escape 仍应关闭
+  fireEvent.keyDown(document, { key: 'Escape' })
 })
 
-it('expires_at 为 null 显示永久，无移除过期', async () => {
+it('expires_at 为 null 显示永久，无移除过期；口令可编辑', async () => {
+  const user = userEvent.setup()
   renderModal('b')
-  await screen.findByText('image/png')
-  expect(screen.getByText('到期后永久删除,不可恢复')).toBeInTheDocument()
+  await screen.findByText('b.png')
+  expect(screen.getAllByText('永久').length).toBeGreaterThan(0)
   expect(screen.queryByRole('button', { name: '移除过期' })).not.toBeInTheDocument()
-  // meta 行含「永久」（预设 Segmented 也有「永久」按钮）
-  const permanentInMeta = screen.getAllByText('永久').some((el) => (el.className || '').includes('metaVal'))
-  expect(permanentInMeta).toBe(true)
+  expect(screen.getByPlaceholderText('输入或生成口令')).toBeInTheDocument()
+  // 长说明默认折叠，展开后可读
+  await user.click(screen.getByText('说明'))
+  expect(screen.getByText(/到期后永久删除/)).toBeInTheDocument()
 })
 
-it('expires_at 有值显示过期行且可移除', async () => {
+it('expires_at 有值显示过期且可移除', async () => {
   const withExp = [item('a'), item('b', { expires_at: '2026-08-01T00:00:00Z' }), item('c')]
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((url: RequestInfo | URL, init?: RequestInit) => {
+      const u = String(url)
+      if (u.includes('/albums')) return Promise.resolve(jsonRes(env({ items: [] })))
+      if (init?.method === 'PATCH' || init?.method === 'DELETE') return Promise.resolve(jsonRes(env({})))
+      if (u.includes('/stats')) return Promise.resolve(jsonRes(env({ total: 0, daily: makeDaily() })))
+      if (u.match(/\/images\/\w+$/))
+        return Promise.resolve(
+          jsonRes(env({
+            ...item('b', { expires_at: '2026-08-01T00:00:00Z' }),
+            mime: 'image/png',
+            upload_ip: '1.1.1.1',
+          })),
+        )
+      return Promise.resolve(jsonRes(env(null)))
+    }),
+  )
   renderModal('b', withExp)
   expect(await screen.findByRole('button', { name: '移除过期' })).toBeInTheDocument()
-  // expiresOn 文案含「过期」;排除按钮「移除过期」
   const labels = screen.getAllByText(/过期/).filter((el) => el.tagName !== 'BUTTON')
   expect(labels.length).toBeGreaterThan(0)
 })
