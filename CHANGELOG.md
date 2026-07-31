@@ -14,6 +14,7 @@ separate version in `go.mod` or `web/package.json`.
 
 - **Storage migrate safety (M2):** process-local mutex per source policy (`ErrMigrateBusy`); disabled target returns `ErrMigrateTargetDisabled`; `MigrateResult.Progress()` / `RedactStoragePath` for admin-safe status (counts + redacted paths, no policy secrets). (#53)
 - **Admin storage migrate jobs (M1):** `POST/GET /api/v1/admin/storage/migrate` with batch cursor resume, progress polling, and policies UI wizard (dry-run / delete-source / limit). CLI `storage-migrate` unchanged. (#54)
+- **Docs:** `docs/storage-migrate.md` documents Admin migrate path, API, and operator acceptance sketch. (#55)
 - **Admin version + update probe (U1):** `GET /admin/system/version` and operator-triggered `POST /admin/system/check-update` (GitHub `releases/latest`); dashboard shows running version. Build injects `internal/version.Version` via ldflags. (#56)
 
 ## [0.5.1] - 2026-07-31
