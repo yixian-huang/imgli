@@ -75,6 +75,11 @@ verify upstream docs before migrating.
   [ShareX](docs/integrations/sharex.md) / [uPic](docs/integrations/upic.md)
   ([index](docs/integrations/README.md)).
 - **Transforms** — controlled thumbnails via `/t/{key}?w=200|400|800`.
+- **Ops (v0.6)** — admin **cross-policy storage migrate** (progress / resume /
+  size check; [docs/storage-migrate.md](docs/storage-migrate.md)); **version
+  display + GitHub update probe + one-click binary upgrade** (Docker = image
+  redeploy); **lifecycle cleanup** dry-run + confirm for expired images and
+  aged trash.
 - **Polish** — bilingual UI (中文/English), PWA, light/dark/**system** theme,
   text watermark (embedded CJK font subset), admin dashboard with audit logs
   and light ops analytics.
@@ -95,7 +100,7 @@ imgli serve
 Pin a version or install location:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yixian-huang/imgli/main/scripts/install.sh | sh -s -- v0.1.0
+curl -fsSL https://raw.githubusercontent.com/yixian-huang/imgli/main/scripts/install.sh | sh -s -- v0.6.0
 PREFIX=/usr/local/bin curl -fsSL https://raw.githubusercontent.com/yixian-huang/imgli/main/scripts/install.sh | sh
 ```
 
@@ -111,7 +116,7 @@ docker run --rm -p 8686:8686 -v imgli-data:/data \
 # → http://localhost:8686  (first registered user becomes admin)
 ```
 
-Pin a release with `ghcr.io/yixian-huang/imgli:v0.1.0` (see
+Pin a release with `ghcr.io/yixian-huang/imgli:v0.6.0` (see
 [Releases](https://github.com/yixian-huang/imgli/releases)).
 
 ### Docker Compose
@@ -132,7 +137,7 @@ Backup / restore: [`docs/backup.md`](docs/backup.md).
 
 ```bash
 make build          # needs Go ≥ 1.26 and Node ≥ 24
-./imgli version     # git tag via ldflags, e.g. v0.1.0
+./imgli version     # git tag via ldflags, e.g. v0.6.0
 ./imgli serve       # → http://localhost:8686
 ```
 
@@ -214,9 +219,13 @@ Changelog: [CHANGELOG.md](CHANGELOG.md). Security: [SECURITY.md](SECURITY.md) ·
 ## Docs map (self-hosters)
 
 - Storage matrices: [S3](docs/s3-compatibility.md) · [WebDAV](docs/webdav-compatibility.md) · [FTP dual-track](docs/storage-ftp.md)
-- Migration: `imgli import-dir` (see CLI section) · bulk from a folder into the upload pipeline
+- **Storage migrate (ops):** [docs/storage-migrate.md](docs/storage-migrate.md) — CLI + Admin job
+- **Cleanup vs CDN:** [docs/ops-cleanup-cdn-boundary.md](docs/ops-cleanup-cdn-boundary.md)
+- **OIDC troubleshooting:** [docs/oidc-operator.md](docs/oidc-operator.md)
+- Migration into imgli: `imgli import-dir` (folder → upload API)
 - Moderation operator path: [docs/moderation-spot-check.md](docs/moderation-spot-check.md)
 - Public roadmap mirror: [ROADMAP.md](ROADMAP.md) (execution = GitHub Issues)
+- Product site / demo: [imgli.com](https://imgli.com) · [img.li](https://img.li)
 - Screenshots: [docs/screenshots/](docs/screenshots/)
 
 ## License

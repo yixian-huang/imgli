@@ -68,6 +68,9 @@
   ([指南](docs/picgo.md))、[ShareX](docs/integrations/sharex.md) /
   [uPic](docs/integrations/upic.md)（[索引](docs/integrations/README.md)）。
 - **变换**:受控缩略 `/t/{key}?w=200|400|800`。
+- **运维（v0.6）**:管理后台 **跨策略存储搬迁**（进度/续跑/size 校验；见
+  [docs/storage-migrate.md](docs/storage-migrate.md)）；**版本展示 + 探测更新 +
+  一键二进制升级**（Docker 请换镜像）；**过期图 / 旧回收站清理**（dry-run + 确认执行）。
 - **细节**:中英双语界面、PWA、浅色/深色/**跟随系统**主题、文字水印(内嵌中文字体子集)、
   带审计日志与轻量运营统计的管理后台。
 
@@ -88,7 +91,7 @@ imgli serve
 固定版本或安装路径：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yixian-huang/imgli/main/scripts/install.sh | sh -s -- v0.1.0
+curl -fsSL https://raw.githubusercontent.com/yixian-huang/imgli/main/scripts/install.sh | sh -s -- v0.6.0
 PREFIX=/usr/local/bin curl -fsSL https://raw.githubusercontent.com/yixian-huang/imgli/main/scripts/install.sh | sh
 ```
 
@@ -104,7 +107,7 @@ docker run --rm -p 8686:8686 -v imgli-data:/data \
 # → http://localhost:8686（第一个注册用户即管理员）
 ```
 
-固定版本用 `ghcr.io/yixian-huang/imgli:v0.1.0`（见
+固定版本用 `ghcr.io/yixian-huang/imgli:v0.6.0`（见
 [Releases](https://github.com/yixian-huang/imgli/releases)）。
 
 ### Docker Compose
@@ -125,7 +128,7 @@ TLS 反代片段：[`deploy/Caddyfile.example`](deploy/Caddyfile.example)、
 
 ```bash
 make build          # 需要 Go ≥ 1.26、Node ≥ 24
-./imgli version     # ldflags 注入的 git tag，如 v0.1.0
+./imgli version     # ldflags 注入的 git tag，如 v0.6.0
 ./imgli serve       # → http://localhost:8686
 ```
 
@@ -207,9 +210,13 @@ cd web && npm run e2e   # Playwright,会先构建二进制
 ## 文档索引（自托管）
 
 - 存储矩阵：[S3](docs/s3-compatibility.md) · [WebDAV](docs/webdav-compatibility.md) · [FTP 双轨](docs/storage-ftp.md)
-- 迁移：`imgli import-dir`（见 CLI 节）· 本地目录批量导入上传管道
+- **跨策略搬迁**：[docs/storage-migrate.md](docs/storage-migrate.md)（CLI + Admin 任务）
+- **清理与 CDN 边界**：[docs/ops-cleanup-cdn-boundary.md](docs/ops-cleanup-cdn-boundary.md)
+- **OIDC 运维排错**：[docs/oidc-operator.md](docs/oidc-operator.md)
+- 迁入 imgli：`imgli import-dir`（本地目录 → 上传 API）
 - 机审抽检路径：[docs/moderation-spot-check.md](docs/moderation-spot-check.md)
 - 公开 Roadmap 镜像：[ROADMAP.md](ROADMAP.md)（执行面 = GitHub Issues）
+- 产品站 / 演示：[imgli.com](https://imgli.com) · [img.li](https://img.li)
 - 截图：[docs/screenshots/](docs/screenshots/)
 
 ## 许可

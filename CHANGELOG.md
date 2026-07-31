@@ -10,6 +10,10 @@ separate version in `go.mod` or `web/package.json`.
 
 ## [Unreleased]
 
+### Changed
+
+- **Docs:** README (en/zh) features + docs map for v0.6 ops (migrate, version upgrade, cleanup); design migrate draft marks M1/M3 shipped; product site imgli.com SEO/identity refreshed.
+
 ## [0.6.0] - 2026-07-31
 
 Theme: **Ops · Migrate · Trust** — admin storage migrate jobs, lifecycle cleanup, version probe/upgrade.
