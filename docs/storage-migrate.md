@@ -47,6 +47,12 @@ GET /api/v1/admin/storage/migrate/{job_id}
 | One job per source | Concurrent migrate on the same `from` returns conflict / busy |
 | Secrets | Progress never includes storage credentials |
 
+### Estimate (optional)
+
+Before start, count candidates with the same filters you will use (or dry-run
+with a small `limit`). Full job dry-run (`dry_run: true`) is the authoritative
+estimate of scanned/copied/skipped without writes.
+
 ## CLI
 
 ```bash

@@ -82,3 +82,10 @@ curl -sfS https://img.li/healthz
 - 前端 locale 解析：`web/src/lib/locale.ts`
 - 插槽渲染：`web/src/ui/SiteSlots.tsx`
 - 回归测：`web/src/ui/SiteSlots.test.tsx`、`web/src/lib/locale.test.ts`
+
+## 相关运维文档
+
+- 存储搬迁：[`storage-migrate.md`](storage-migrate.md)
+- 清理 vs CDN：[`ops-cleanup-cdn-boundary.md`](ops-cleanup-cdn-boundary.md)
+- OIDC 排错：[`oidc-operator.md`](oidc-operator.md)
+- 统计/CDN 计量：`deploy/ops/admin-stats-metering.md`

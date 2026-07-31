@@ -19,6 +19,7 @@ separate version in `go.mod` or `web/package.json`.
 - **Admin one-click binary upgrade (U2):** `POST /admin/system/upgrade` with `confirm=true`, checksum-verified GitHub Release asset, in-place binary replace + restart guidance; Docker/container installs refuse binary replace. (#57)
 - **Storage migrate filters + size verify (M3):** optional `user_id` / created time window; post-Put size check blocks silent policy flip on mismatch. (#58)
 - **Admin lifecycle cleanup (L1):** `POST /admin/cleanup/preview` and `POST /admin/cleanup/run` (confirm required) for expired images and old trash; dry-run samples image keys. (#59)
+- **Docs (P2):** cleanup vs CDN boundary, OIDC operator troubleshooting, migrate estimate note. (#61, #62, #63)
 
 ## [0.5.1] - 2026-07-31
 
