@@ -1888,6 +1888,28 @@ func TestAdminSMTPTestEndpoint(t *testing.T) {
 	}
 }
 
+func TestAdminSystemVersion(t *testing.T) {
+	s, admin, user := adminTestServer(t)
+	rec, _ := doJSON(t, s, "GET", "/api/v1/admin/system/version", "", []*http.Cookie{user})
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("user version = %d", rec.Code)
+	}
+	rec, e := doJSON(t, s, "GET", "/api/v1/admin/system/version", "", []*http.Cookie{admin})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admin version = %d %s", rec.Code, rec.Body.String())
+	}
+	var body struct {
+		Current string `json:"current"`
+		Repo    string `json:"repo"`
+	}
+	if err := json.Unmarshal(e.Data, &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Current == "" || body.Repo == "" {
+		t.Fatalf("empty version payload: %+v", body)
+	}
+}
+
 func TestAdminStorageMigrateJob(t *testing.T) {
 	s, admin, user := adminTestServer(t)
 	// non-admin forbidden

@@ -17,7 +17,7 @@ builds:
     flags:
       - -trimpath
     ldflags:
-      - -s -w -X main.version={{.Tag}}
+      - -s -w -X github.com/yixian-huang/imgli/internal/version.Version={{.Tag}}
     goos:
       - linux
       - darwin

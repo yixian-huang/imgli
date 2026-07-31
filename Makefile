@@ -6,11 +6,11 @@ web:
 	cd web && npm install --no-fund --no-audit && npm run build
 
 build-go:
-	go build -ldflags "-X main.version=$(VERSION)" -o imgli ./cmd/imgli
+	go build -ldflags "-X github.com/yixian-huang/imgli/internal/version.Version=$(VERSION)" -o imgli ./cmd/imgli
 
 # libvips 构建:缩略图 WebP(需本机 pkg-config vips + cgo；交叉编译请在目标机本机构建)。
 build-vips: web
-	CGO_ENABLED=1 go build -tags vips -ldflags "-X main.version=$(VERSION)-vips" -o imgli ./cmd/imgli
+	CGO_ENABLED=1 go build -tags vips -ldflags "-X github.com/yixian-huang/imgli/internal/version.Version=$(VERSION)-vips" -o imgli ./cmd/imgli
 
 build: web build-go
 

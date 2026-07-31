@@ -144,4 +144,12 @@ export default {
   allowedPolicies: 'Allowed policies',
   policiesLoadFailed: 'Failed to load storage policies',
   noPolicies: 'No storage policies',
+
+  runningVersion: 'Running version',
+  checkUpdate: 'Check for updates',
+  updateUpToDate: 'Up to date ({current})',
+  updateAvailable: 'Update available: {latest}',
+  updateAvailableToast: 'Update available: {latest}',
+  updateCheckFailed: 'Check failed: {err}',
+  releaseNotes: 'Release notes',
 }

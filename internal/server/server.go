@@ -279,6 +279,8 @@ func (s *Server) mountAPI() {
 				ar.Post("/policies/{id}/test", admH.TestPolicyConn)
 				ar.Post("/storage/migrate", admH.StartStorageMigrate)
 				ar.Get("/storage/migrate/{id}", admH.GetStorageMigrate)
+				ar.Get("/system/version", admH.GetSystemVersion)
+				ar.Post("/system/check-update", admH.CheckSystemUpdate)
 				ar.Get("/settings", admH.GetSettings)
 				ar.Put("/settings", admH.PutSettings)
 				ar.Post("/settings/smtp/test", admH.TestSMTP)

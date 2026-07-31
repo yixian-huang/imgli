@@ -10,6 +10,36 @@ export function useAdminStats() {
   return useQuery({ queryKey: queryKeys.admin.stats, queryFn: () => api<AdminStats>('/admin/stats') })
 }
 
+export interface SystemVersion {
+  current: string
+  repo: string
+}
+
+export interface SystemUpdateCheck {
+  current: string
+  latest?: string
+  update_available: boolean
+  release_url?: string
+  checked_at: string
+  error?: string
+  repo: string
+}
+
+export function useSystemVersion() {
+  return useQuery({
+    queryKey: queryKeys.admin.systemVersion,
+    queryFn: () => api<SystemVersion>('/admin/system/version'),
+    staleTime: 60_000,
+  })
+}
+
+export function useCheckSystemUpdate() {
+  return useMutation({
+    mutationFn: () => post<SystemUpdateCheck>('/admin/system/check-update', {}),
+    onError: toastApiError,
+  })
+}
+
 export function useAdminRefererImages(host: string | null, days = 30) {
   const p = new URLSearchParams()
   if (host) p.set('host', host)

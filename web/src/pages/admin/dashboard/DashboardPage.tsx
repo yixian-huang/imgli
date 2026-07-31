@@ -1,7 +1,15 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
-import { useAdminLogs, useAdminRefererImages, useAdminStats } from '../../../api/adminHooks'
+import {
+  useAdminLogs,
+  useAdminRefererImages,
+  useAdminStats,
+  useCheckSystemUpdate,
+  useSystemVersion,
+} from '../../../api/adminHooks'
 import { useT } from '../../../i18n'
+import { useGlobal } from '../../../store'
+import { Button } from '../../../ui/Button'
 import { formatBytes, formatDate } from '../../../lib/format'
 import { PageHeader } from '../../../shell/PageHeader'
 import { Skeleton } from '../../../ui/Skeleton'
@@ -16,13 +24,56 @@ export function DashboardPage() {
   const { t } = useT()
   const stats = useAdminStats()
   const logs = useAdminLogs({ limit: 8 })
+  const verQ = useSystemVersion()
+  const checkUpdate = useCheckSystemUpdate()
   const [refWindow, setRefWindow] = useState<RefWindow>(30)
   const [selectedHost, setSelectedHost] = useState<string | null>(null)
+  const [updateMsg, setUpdateMsg] = useState<string | null>(null)
   const hostImages = useAdminRefererImages(selectedHost, refWindow)
+
+  const onCheckUpdate = () => {
+    setUpdateMsg(null)
+    checkUpdate.mutate(undefined, {
+      onSuccess: (r) => {
+        if (r.error) {
+          setUpdateMsg(t('adminA.updateCheckFailed', { err: r.error }))
+          return
+        }
+        if (r.update_available) {
+          setUpdateMsg(t('adminA.updateAvailable', { latest: r.latest ?? '?', url: r.release_url ?? '' }))
+          if (r.release_url) {
+            useGlobal.getState().pushToast(t('adminA.updateAvailableToast', { latest: r.latest ?? '' }))
+          }
+        } else {
+          setUpdateMsg(t('adminA.updateUpToDate', { current: r.current }))
+        }
+      },
+    })
+  }
 
   return (
     <div>
       <PageHeader kicker="DASHBOARD" title={t('adminA.dashTitle')} />
+      <div className={styles.versionBar}>
+        <span className={styles.versionLabel}>{t('adminA.runningVersion')}</span>
+        <code className={styles.versionCode}>{verQ.data?.current ?? '…'}</code>
+        <Button variant="secondary" disabled={checkUpdate.isPending} onClick={onCheckUpdate}>
+          {t('adminA.checkUpdate')}
+        </Button>
+        {updateMsg && (
+          <span className={styles.versionMsg}>
+            {updateMsg}
+            {checkUpdate.data?.release_url && checkUpdate.data.update_available && (
+              <>
+                {' '}
+                <a href={checkUpdate.data.release_url} target="_blank" rel="noreferrer">
+                  {t('adminA.releaseNotes')}
+                </a>
+              </>
+            )}
+          </span>
+        )}
+      </div>
       <AdminQueryGate query={stats}>
         {(data) => {
           const referers =

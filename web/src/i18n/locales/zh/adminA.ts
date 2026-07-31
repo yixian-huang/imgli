@@ -144,4 +144,12 @@ export default {
   allowedPolicies: '可用策略',
   policiesLoadFailed: '存储策略加载失败',
   noPolicies: '暂无存储策略',
+
+  runningVersion: '运行版本',
+  checkUpdate: '探测更新',
+  updateUpToDate: '已是最新（{current}）',
+  updateAvailable: '发现新版本 {latest}',
+  updateAvailableToast: '可更新到 {latest}',
+  updateCheckFailed: '探测失败：{err}',
+  releaseNotes: '发行说明',
 }

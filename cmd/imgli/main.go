@@ -15,9 +15,10 @@ import (
 	"github.com/yixian-huang/imgli/internal/model"
 	"github.com/yixian-huang/imgli/internal/server"
 	"github.com/yixian-huang/imgli/internal/service/storagesvc"
+	appver "github.com/yixian-huang/imgli/internal/version"
 )
 
-var version = "dev" // 由 -ldflags "-X main.version=..." 注入
+// 版本见 internal/version；ldflags: -X github.com/yixian-huang/imgli/internal/version.Version=
 
 func main() {
 	if len(os.Args) < 2 {
@@ -81,7 +82,7 @@ func main() {
 			os.Exit(1)
 		}
 	case "version":
-		fmt.Println(version)
+		fmt.Println(appver.Version)
 	default:
 		usage()
 		os.Exit(2)
@@ -167,6 +168,6 @@ func runServe(args []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	fmt.Printf("imgli %s 监听 %s\n", version, cfg.Listen)
+	fmt.Printf("imgli %s 监听 %s\n", appver.Version, cfg.Listen)
 	return server.New(server.Options{Cfg: cfg, DB: db}).Run(ctx)
 }
