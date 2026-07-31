@@ -33,10 +33,20 @@ type Resolver struct {
 	db    *gorm.DB
 	mu    sync.Mutex
 	cache map[uint64]cachedDriver // policyID → 缓存驱动+指纹
+
+	// migrateMu / migrateActive：跨策略搬迁进程内互斥（按 from policy id）。
+	// 与 cache 锁分离，避免 Driver 解析与搬迁长时间持锁交叉死锁。
+	migrateMu     sync.Mutex
+	migrateActive map[uint64]struct{}
 }
 
 func New(cfg *config.Config, db *gorm.DB) *Resolver {
-	return &Resolver{cfg: cfg, db: db, cache: map[uint64]cachedDriver{}}
+	return &Resolver{
+		cfg:           cfg,
+		db:            db,
+		cache:         map[uint64]cachedDriver{},
+		migrateActive: map[uint64]struct{}{},
+	}
 }
 
 // policyFP 计算策略 driver+config 的稳定指纹:任一字段变化即不同,用于缓存失效。

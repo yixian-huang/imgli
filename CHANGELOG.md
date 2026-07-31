@@ -10,6 +10,10 @@ separate version in `go.mod` or `web/package.json`.
 
 ## [Unreleased]
 
+### Added
+
+- **Storage migrate safety (M2):** process-local mutex per source policy (`ErrMigrateBusy`); disabled target returns `ErrMigrateTargetDisabled`; `MigrateResult.Progress()` / `RedactStoragePath` for admin-safe status (counts + redacted paths, no policy secrets). (#53)
+
 ## [0.5.1] - 2026-07-31
 
 Theme: **Patch — dark onboarding + storage-migrate docs**

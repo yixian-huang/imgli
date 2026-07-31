@@ -111,6 +111,88 @@ func TestMigrateFilesRejectsSamePolicy(t *testing.T) {
 	}
 }
 
+func TestMigrateFilesRejectsDisabledTarget(t *testing.T) {
+	db := model.TestDB(t)
+	to := model.StoragePolicy{
+		Name: "disabled-to", Driver: "local",
+		Config: map[string]string{"root": "off"}, Enabled: true,
+	}
+	if err := db.Create(&to).Error; err != nil {
+		t.Fatal(err)
+	}
+	// GORM default:true 对 bool 零值会当默认 true；显式关掉。
+	if err := db.Model(&to).Update("enabled", false).Error; err != nil {
+		t.Fatal(err)
+	}
+	r := New(&config.Config{DataDir: t.TempDir()}, db)
+	_, err := r.MigrateFiles(context.Background(), db, MigrateOpts{
+		FromPolicyID: 1, ToPolicyID: to.ID,
+	})
+	if !errors.Is(err, ErrMigrateTargetDisabled) {
+		t.Fatalf("want ErrMigrateTargetDisabled, got %v", err)
+	}
+}
+
+func TestMigrateFilesBusySameFrom(t *testing.T) {
+	db := model.TestDB(t)
+	to := model.StoragePolicy{
+		Name: "busy-to", Driver: "local",
+		Config: map[string]string{"root": "busy-b"}, Enabled: true,
+	}
+	if err := db.Create(&to).Error; err != nil {
+		t.Fatal(err)
+	}
+	r := New(&config.Config{DataDir: t.TempDir()}, db)
+	if err := r.tryBeginMigrate(1); err != nil {
+		t.Fatal(err)
+	}
+	defer r.endMigrate(1)
+	if !r.MigrateActive(1) {
+		t.Fatal("expected active after tryBeginMigrate")
+	}
+	_, err := r.MigrateFiles(context.Background(), db, MigrateOpts{
+		FromPolicyID: 1, ToPolicyID: to.ID, DryRun: true,
+	})
+	if !errors.Is(err, ErrMigrateBusy) {
+		t.Fatalf("want ErrMigrateBusy, got %v", err)
+	}
+}
+
+func TestRedactStoragePath(t *testing.T) {
+	cases := []struct {
+		in, want string
+	}{
+		{"", ""},
+		{"a.png", "a.png"},
+		{"07/a.png", "07/a.png"},               // ≤2 段原样
+		{"2026/07/a.png", "…/07/a.png"},         // 3 段脱敏
+		{"uploads/private/2026/07/a.png", "…/07/a.png"},
+		{`C:\data\uploads\x\y\z.png`, "…/y/z.png"},
+	}
+	for _, c := range cases {
+		if got := RedactStoragePath(c.in); got != c.want {
+			t.Errorf("RedactStoragePath(%q)=%q want %q", c.in, got, c.want)
+		}
+	}
+}
+
+func TestMigrateResultProgressNoSecretsShape(t *testing.T) {
+	res := MigrateResult{
+		Scanned: 2, Copied: 1, Skipped: 1, Failed: 0,
+		Errors:      []string{"file#1 put …/a.png: boom"},
+		SamplePaths: []string{"…/07/a.png"},
+	}
+	p := res.Progress()
+	if p.Scanned != 2 || p.Copied != 1 || p.Skipped != 1 {
+		t.Fatalf("progress counts: %+v", p)
+	}
+	// 调用方改切片不应影响原结果
+	p.SamplePaths[0] = "mutated"
+	if res.SamplePaths[0] != "…/07/a.png" {
+		t.Fatal("Progress should copy SamplePaths")
+	}
+}
+
 func TestMigrateFilesMissingSourceSkipped(t *testing.T) {
 	dir := t.TempDir()
 	db := model.TestDB(t)
