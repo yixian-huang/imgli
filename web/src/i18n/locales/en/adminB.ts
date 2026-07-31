@@ -96,6 +96,20 @@ export default {
     'Compatibility drivers (e.g. FTP) are incomplete. Prefer OpenList/proxy → WebDAV when possible.',
   confirmCompatEnableAck: 'I understand the limitations',
 
+  migrateTitle: 'Cross-policy migrate',
+  migrateDesc:
+    'Copy objects from a source policy to a target and retarget file rows (cutover). CLI storage-migrate remains available.',
+  migrateFrom: 'From policy',
+  migrateTo: 'To policy',
+  migrateDryRun: 'Dry-run only (no writes)',
+  migrateDeleteSource: 'Delete source objects after success',
+  migrateLimit: 'Max rows (0 = unlimited)',
+  migrateStart: 'Start migrate',
+  migrateProgress: 'Progress: scanned {scanned} · ok {copied} · skipped {skipped} · failed {failed}',
+  migrateStatus: 'Status: {status}',
+  migratePickDifferent: 'Source and target must differ',
+  migrateNeedTwo: 'Need at least two policies to migrate',
+
   // Invites
   invitesTitle: 'Invite codes',
   filterStatusAria: 'Filter by status',

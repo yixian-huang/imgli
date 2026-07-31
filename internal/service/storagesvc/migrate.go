@@ -34,6 +34,10 @@ type MigrateOpts struct {
 	DeleteSource bool
 	// Limit 最多处理 N 条；0=不限。
 	Limit int
+	// AfterID 仅处理 id > AfterID 的行（升序），用于批处理续跑 cursor。
+	AfterID uint64
+	// SkipMutex 为 true 时不获取/释放 from 互斥（由外层 job 持有锁时使用）。
+	SkipMutex bool
 }
 
 // MigrateResult 搬迁汇总（可直接作为 Admin 进度负载的字段源；不含策略 Config）。
@@ -46,6 +50,8 @@ type MigrateResult struct {
 	Errors []string
 	// SamplePaths 脱敏后的 path 样例（至多 5 条），供 Admin 展示。
 	SamplePaths []string
+	// LastFileID 本批处理到的最大 file id（0=未处理任何行），供 cursor 续跑。
+	LastFileID uint64
 }
 
 // MigrateProgress 是 Admin/API 安全进度视图：仅计数 + 脱敏 path + 错误摘要，无策略凭据。
@@ -97,7 +103,7 @@ func RedactStoragePath(p string) string {
 
 // MigrateFiles 将 from 策略上的 files 复制到 to 策略并改指向。
 // 缩略图：.thumbs/{hash}.jpg 与 .webp 若存在则一并复制（缺失不失败）。
-// 同一 FromPolicyID 进程内互斥：并发第二次调用返回 ErrMigrateBusy。
+// 同一 FromPolicyID 进程内互斥：并发第二次调用返回 ErrMigrateBusy（SkipMutex 除外）。
 func (r *Resolver) MigrateFiles(ctx context.Context, db *gorm.DB, opts MigrateOpts) (MigrateResult, error) {
 	var out MigrateResult
 	if opts.FromPolicyID == 0 || opts.ToPolicyID == 0 {
@@ -106,10 +112,12 @@ func (r *Resolver) MigrateFiles(ctx context.Context, db *gorm.DB, opts MigrateOp
 	if opts.FromPolicyID == opts.ToPolicyID {
 		return out, errors.New("storagesvc: from 与 to 不能相同")
 	}
-	if err := r.tryBeginMigrate(opts.FromPolicyID); err != nil {
-		return out, err
+	if !opts.SkipMutex {
+		if err := r.tryBeginMigrate(opts.FromPolicyID); err != nil {
+			return out, err
+		}
+		defer r.endMigrate(opts.FromPolicyID)
 	}
-	defer r.endMigrate(opts.FromPolicyID)
 
 	var fromP, toP model.StoragePolicy
 	if err := db.First(&fromP, opts.FromPolicyID).Error; err != nil {
@@ -131,6 +139,9 @@ func (r *Resolver) MigrateFiles(ctx context.Context, db *gorm.DB, opts MigrateOp
 	}
 
 	q := db.Model(&model.File{}).Where("storage_policy_id = ?", opts.FromPolicyID).Order("id")
+	if opts.AfterID > 0 {
+		q = q.Where("id > ?", opts.AfterID)
+	}
 	if opts.Limit > 0 {
 		q = q.Limit(opts.Limit)
 	}
@@ -142,6 +153,9 @@ func (r *Resolver) MigrateFiles(ctx context.Context, db *gorm.DB, opts MigrateOp
 	for i := range files {
 		out.Scanned++
 		f := &files[i]
+		if f.ID > out.LastFileID {
+			out.LastFileID = f.ID
+		}
 		if err := ctx.Err(); err != nil {
 			out.addErr(fmt.Sprintf("file#%d: %v", f.ID, err))
 			out.Failed++

@@ -38,6 +38,10 @@ type Resolver struct {
 	// 与 cache 锁分离，避免 Driver 解析与搬迁长时间持锁交叉死锁。
 	migrateMu     sync.Mutex
 	migrateActive map[uint64]struct{}
+
+	// jobsMu / jobs：Admin 异步搬迁任务（进程内；重启即失，重跑幂等）。
+	jobsMu sync.Mutex
+	jobs   map[string]*MigrateJob
 }
 
 func New(cfg *config.Config, db *gorm.DB) *Resolver {
@@ -46,6 +50,7 @@ func New(cfg *config.Config, db *gorm.DB) *Resolver {
 		db:            db,
 		cache:         map[uint64]cachedDriver{},
 		migrateActive: map[uint64]struct{}{},
+		jobs:          map[string]*MigrateJob{},
 	}
 }
 

@@ -143,3 +143,40 @@
     grid-template-columns: 1fr;
   }
 }
+
+.migratePanel {
+  margin: 0 0 1.25rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 10px;
+  background: var(--surface-2, #fafafa);
+}
+.migrateTitle {
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+.migrateRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+}
+.migrateSelect {
+  width: 100%;
+  padding: 0.45rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid var(--border, #d1d5db);
+  background: var(--surface, #fff);
+  color: inherit;
+}
+.migrateToggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem 1.25rem;
+  align-items: center;
+}
+.migrateStatus {
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+  opacity: 0.92;
+}

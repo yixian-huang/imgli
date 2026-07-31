@@ -96,6 +96,19 @@ export default {
     '兼容层驱动（如 FTP）功能不完整。请确认已阅读能力限制；更推荐 OpenList/外置代理后再接 WebDAV。',
   confirmCompatEnableAck: '我已了解功能限制',
 
+  migrateTitle: '跨策略搬迁',
+  migrateDesc: '把源策略上的对象复制到目标策略并改库指向（cutover）。CLI 仍可用 storage-migrate。',
+  migrateFrom: '源策略',
+  migrateTo: '目标策略',
+  migrateDryRun: '仅演练（不写盘/不改库）',
+  migrateDeleteSource: '成功后删除源对象',
+  migrateLimit: '最多处理条数（0=不限）',
+  migrateStart: '开始搬迁',
+  migrateProgress: '进度：扫描 {scanned} · 成功 {copied} · 跳过 {skipped} · 失败 {failed}',
+  migrateStatus: '状态：{status}',
+  migratePickDifferent: '源与目标不能相同',
+  migrateNeedTwo: '至少需要两个策略才能搬迁',
+
   // Invites
   invitesTitle: '邀请码',
   filterStatusAria: '状态筛选',

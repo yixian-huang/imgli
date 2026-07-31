@@ -139,6 +139,56 @@ export function useAdminPolicies() {
   })
 }
 
+export interface StorageMigrateProgress {
+  scanned: number
+  copied: number
+  skipped: number
+  failed: number
+  sample_paths?: string[]
+  errors?: string[]
+}
+
+export interface StorageMigrateJob {
+  id: string
+  from_policy_id: number
+  to_policy_id: number
+  dry_run: boolean
+  delete_source: boolean
+  limit: number
+  status: string
+  progress: StorageMigrateProgress
+  cursor_after_id: number
+  error?: string
+  created_at: string
+  updated_at: string
+}
+
+export function useStartStorageMigrate() {
+  return useMutation({
+    mutationFn: (body: {
+      from_policy_id: number
+      to_policy_id: number
+      dry_run?: boolean
+      delete_source?: boolean
+      limit?: number
+    }) => post<StorageMigrateJob>('/admin/storage/migrate', body),
+    onError: toastApiError,
+  })
+}
+
+export function useStorageMigrateJob(id: string | null) {
+  return useQuery({
+    queryKey: queryKeys.admin.migrateJob(id ?? ''),
+    queryFn: () => api<StorageMigrateJob>(`/admin/storage/migrate/${id}`),
+    enabled: !!id,
+    refetchInterval: (q) => {
+      const s = q.state.data?.status
+      if (s === 'done' || s === 'failed') return false
+      return 1000
+    },
+  })
+}
+
 export function useSetImageWhitelist() {
   const qc = useQueryClient()
   return useMutation({

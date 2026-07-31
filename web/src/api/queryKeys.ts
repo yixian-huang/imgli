@@ -25,6 +25,7 @@ export const queryKeys = {
     users: (f: unknown) => ['admin', 'users', f] as const,
     groups: ['admin', 'groups'] as const,
     policies: ['admin', 'policies'] as const,
+    migrateJob: (id: string) => ['admin', 'storage-migrate', id] as const,
     imagesRoot: ['admin', 'images'] as const,
     images: (f: unknown) => ['admin', 'images', f] as const,
     reviewRoot: ['admin', 'review'] as const,

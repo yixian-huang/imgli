@@ -1547,13 +1547,13 @@ func TestAdminLogsAfterRealWrites(t *testing.T) {
 
 	var page struct {
 		Items []struct {
-			ID        uint64      `json:"id"`
-			ActorID   any         `json:"actor_id"`
-			ActorType string      `json:"actor_type"`
-			Action    string      `json:"action"`
-			Detail    string      `json:"detail"`
-			IP        string      `json:"ip"`
-			CreatedAt string      `json:"created_at"`
+			ID        uint64 `json:"id"`
+			ActorID   any    `json:"actor_id"`
+			ActorType string `json:"actor_type"`
+			Action    string `json:"action"`
+			Detail    string `json:"detail"`
+			IP        string `json:"ip"`
+			CreatedAt string `json:"created_at"`
 		} `json:"items"`
 		Total int64 `json:"total"`
 		Page  int   `json:"page"`
@@ -1886,4 +1886,61 @@ func TestAdminSMTPTestEndpoint(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("to 非邮箱 = %d, want 400", rec.Code)
 	}
+}
+
+func TestAdminStorageMigrateJob(t *testing.T) {
+	s, admin, user := adminTestServer(t)
+	// non-admin forbidden
+	rec, _ := doJSON(t, s, "POST", "/api/v1/admin/storage/migrate",
+		`{"from_policy_id":1,"to_policy_id":2,"dry_run":true}`, []*http.Cookie{user})
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("user migrate = %d body=%s", rec.Code, rec.Body.String())
+	}
+	// create second policy (use TempDir root for isolation)
+	root := t.TempDir()
+	rec, e := doJSON(t, s, "POST", "/api/v1/admin/policies", policyCreateBody(t, "mig-to", root), []*http.Cookie{admin})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("create policy = %d %s", rec.Code, rec.Body.String())
+	}
+	var created struct {
+		ID uint64 `json:"id"`
+	}
+	if err := json.Unmarshal(e.Data, &created); err != nil || created.ID == 0 {
+		t.Fatalf("parse create: %v data=%s", err, string(e.Data))
+	}
+	// same from/to should 400
+	rec, _ = doJSON(t, s, "POST", "/api/v1/admin/storage/migrate",
+		`{"from_policy_id":1,"to_policy_id":1,"dry_run":true}`, []*http.Cookie{admin})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("same policy = %d %s", rec.Code, rec.Body.String())
+	}
+	body := `{"from_policy_id":1,"to_policy_id":` + itoa(created.ID) + `,"dry_run":true,"limit":10}`
+	rec, e = doJSON(t, s, "POST", "/api/v1/admin/storage/migrate", body, []*http.Cookie{admin})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("start migrate = %d %s", rec.Code, rec.Body.String())
+	}
+	var job struct {
+		ID     string `json:"id"`
+		Status string `json:"status"`
+	}
+	if err := json.Unmarshal(e.Data, &job); err != nil || job.ID == "" {
+		t.Fatalf("parse job: %v data=%s", err, string(e.Data))
+	}
+	// poll until terminal
+	for i := 0; i < 50; i++ {
+		rec, e = doJSON(t, s, "GET", "/api/v1/admin/storage/migrate/"+job.ID, "", []*http.Cookie{admin})
+		if rec.Code != http.StatusOK {
+			t.Fatalf("get job = %d %s", rec.Code, rec.Body.String())
+		}
+		if err := json.Unmarshal(e.Data, &job); err != nil {
+			t.Fatal(err)
+		}
+		if job.Status == "done" || job.Status == "failed" {
+			if job.Status != "done" {
+				t.Fatalf("job failed: %s", string(e.Data))
+			}
+			return
+		}
+	}
+	t.Fatal("job did not finish")
 }

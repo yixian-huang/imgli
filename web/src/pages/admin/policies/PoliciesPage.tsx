@@ -1,7 +1,16 @@
-import { useState } from 'react'
-import { useAdminPolicies, useCreatePolicy, useDeletePolicy, useTestPolicy, useUpdatePolicy } from '../../../api/adminHooks'
+import { useMemo, useState } from 'react'
+import {
+  useAdminPolicies,
+  useCreatePolicy,
+  useDeletePolicy,
+  useStartStorageMigrate,
+  useStorageMigrateJob,
+  useTestPolicy,
+  useUpdatePolicy,
+} from '../../../api/adminHooks'
 import type { AdminPolicy, StorageCaps } from '../../../api/types'
 import { useT } from '../../../i18n'
+import { useGlobal } from '../../../store'
 import { PageHeader } from '../../../shell/PageHeader'
 import { Button } from '../../../ui/Button'
 import { EmptyState } from '../../../ui/EmptyState'
@@ -312,12 +321,24 @@ export function PoliciesPage() {
   const update = useUpdatePolicy()
   const del = useDeletePolicy()
   const test = useTestPolicy()
+  const startMigrate = useStartStorageMigrate()
 
   const policies = policiesQ.data?.items ?? []
   const [sel, setSel] = useState<number | 'new' | null>(null)
   const [form, setForm] = useState<FormState>(NEW_FORM)
   const [testMsg, setTestMsg] = useState<string | null>(null)
   const [compatAck, setCompatAck] = useState(false)
+  const [migFrom, setMigFrom] = useState<number | ''>('')
+  const [migTo, setMigTo] = useState<number | ''>('')
+  const [migDry, setMigDry] = useState(true)
+  const [migDel, setMigDel] = useState(false)
+  const [migLimit, setMigLimit] = useState('0')
+  const [migJobId, setMigJobId] = useState<string | null>(null)
+  const migJobQ = useStorageMigrateJob(migJobId)
+  const policyOptions = useMemo(
+    () => policies.map((p) => ({ id: p.id, label: `${p.name} (#${p.id})${p.enabled ? '' : ' · off'}` })),
+    [policies],
+  )
 
   const current = typeof sel === 'number' ? policies.find((p) => p.id === sel) ?? null : null
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setForm((f) => ({ ...f, [k]: v }))
@@ -388,6 +409,29 @@ export function PoliciesPage() {
           ? t('adminB.driverFtp')
           : t('adminB.driverLocal')
 
+  const runMigrate = () => {
+    const toast = (msg: string) => useGlobal.getState().pushToast(msg)
+    if (policyOptions.length < 2) {
+      toast(t('adminB.migrateNeedTwo'))
+      return
+    }
+    if (migFrom === '' || migTo === '' || migFrom === migTo) {
+      toast(t('adminB.migratePickDifferent'))
+      return
+    }
+    const limit = Number.parseInt(migLimit, 10)
+    startMigrate.mutate(
+      {
+        from_policy_id: migFrom,
+        to_policy_id: migTo,
+        dry_run: migDry,
+        delete_source: migDel && !migDry,
+        limit: Number.isFinite(limit) && limit > 0 ? limit : 0,
+      },
+      { onSuccess: (j) => setMigJobId(j.id) },
+    )
+  }
+
   return (
     <div>
       <PageHeader
@@ -401,6 +445,80 @@ export function PoliciesPage() {
       />
       <AdminQueryGate query={policiesQ}>
         {() => (
+          <>
+          <div className={styles.migratePanel}>
+            <div className={styles.migrateTitle}>{t('adminB.migrateTitle')}</div>
+            <p className={forms.hint}>{t('adminB.migrateDesc')}</p>
+            <div className={styles.migrateRow}>
+              <label className={forms.field}>
+                <span className={forms.label}>{t('adminB.migrateFrom')}</span>
+                <select
+                  className={styles.migrateSelect}
+                  value={migFrom === '' ? '' : String(migFrom)}
+                  onChange={(e) => setMigFrom(e.target.value ? Number(e.target.value) : '')}
+                >
+                  <option value="">—</option>
+                  {policyOptions.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className={forms.field}>
+                <span className={forms.label}>{t('adminB.migrateTo')}</span>
+                <select
+                  className={styles.migrateSelect}
+                  value={migTo === '' ? '' : String(migTo)}
+                  onChange={(e) => setMigTo(e.target.value ? Number(e.target.value) : '')}
+                >
+                  <option value="">—</option>
+                  {policyOptions.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <Input
+                label={t('adminB.migrateLimit')}
+                value={migLimit}
+                onChange={(e) => setMigLimit(e.target.value)}
+              />
+            </div>
+            <div className={styles.migrateToggles}>
+              <label className={styles.ackRow}>
+                <input type="checkbox" checked={migDry} onChange={(e) => setMigDry(e.target.checked)} />
+                <span>{t('adminB.migrateDryRun')}</span>
+              </label>
+              <label className={styles.ackRow}>
+                <input
+                  type="checkbox"
+                  checked={migDel}
+                  disabled={migDry}
+                  onChange={(e) => setMigDel(e.target.checked)}
+                />
+                <span>{t('adminB.migrateDeleteSource')}</span>
+              </label>
+              <Button variant="secondary" disabled={startMigrate.isPending} onClick={runMigrate}>
+                {t('adminB.migrateStart')}
+              </Button>
+            </div>
+            {migJobQ.data && (
+              <div className={styles.migrateStatus}>
+                <div>{t('adminB.migrateStatus', { status: migJobQ.data.status })}</div>
+                <div>
+                  {t('adminB.migrateProgress', {
+                    scanned: migJobQ.data.progress.scanned,
+                    copied: migJobQ.data.progress.copied,
+                    skipped: migJobQ.data.progress.skipped,
+                    failed: migJobQ.data.progress.failed,
+                  })}
+                </div>
+                {migJobQ.data.error && <p className={styles.warnInline}>{migJobQ.data.error}</p>}
+              </div>
+            )}
+          </div>
           <div className={styles.split}>
             <div className={styles.list}>
               {policies.map((p) => (
@@ -609,6 +727,7 @@ export function PoliciesPage() {
               )}
             </div>
           </div>
+          </>
         )}
       </AdminQueryGate>
     </div>
