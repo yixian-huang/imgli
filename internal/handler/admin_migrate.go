@@ -12,11 +12,14 @@ import (
 )
 
 type migrateJobStartRequest struct {
-	FromPolicyID uint64 `json:"from_policy_id"`
-	ToPolicyID   uint64 `json:"to_policy_id"`
-	DryRun       bool   `json:"dry_run"`
-	DeleteSource bool   `json:"delete_source"`
-	Limit        int    `json:"limit"`
+	FromPolicyID  uint64  `json:"from_policy_id"`
+	ToPolicyID    uint64  `json:"to_policy_id"`
+	DryRun        bool    `json:"dry_run"`
+	DeleteSource  bool    `json:"delete_source"`
+	Limit         int     `json:"limit"`
+	UserID        *uint64 `json:"user_id"`
+	CreatedAfter  *string `json:"created_after"`  // RFC3339
+	CreatedBefore *string `json:"created_before"` // RFC3339
 }
 
 func migrateJobDTO(j storagesvc.MigrateJobView) map[string]any {
@@ -47,13 +50,31 @@ func (h *AdminHandlers) StartStorageMigrate(w http.ResponseWriter, r *http.Reque
 		Fail(w, http.StatusBadRequest, CodeInvalidRequest, "请求体无效")
 		return
 	}
-	job, err := h.D.Res.StartMigrateJob(storagesvc.MigrateJobOpts{
+	opts := storagesvc.MigrateJobOpts{
 		FromPolicyID: req.FromPolicyID,
 		ToPolicyID:   req.ToPolicyID,
 		DryRun:       req.DryRun,
 		DeleteSource: req.DeleteSource,
 		Limit:        req.Limit,
-	})
+		UserID:       req.UserID,
+	}
+	if req.CreatedAfter != nil && *req.CreatedAfter != "" {
+		t, err := time.Parse(time.RFC3339, *req.CreatedAfter)
+		if err != nil {
+			Fail(w, http.StatusBadRequest, CodeInvalidRequest, "created_after 需 RFC3339")
+			return
+		}
+		opts.CreatedAfter = &t
+	}
+	if req.CreatedBefore != nil && *req.CreatedBefore != "" {
+		t, err := time.Parse(time.RFC3339, *req.CreatedBefore)
+		if err != nil {
+			Fail(w, http.StatusBadRequest, CodeInvalidRequest, "created_before 需 RFC3339")
+			return
+		}
+		opts.CreatedBefore = &t
+	}
+	job, err := h.D.Res.StartMigrateJob(opts)
 	if err != nil {
 		if errors.Is(err, storagesvc.ErrMigrateBusy) {
 			Fail(w, http.StatusConflict, CodeForbidden, err.Error())

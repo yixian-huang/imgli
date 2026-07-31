@@ -31,7 +31,10 @@ type MigrateJobOpts struct {
 	DryRun       bool
 	DeleteSource bool
 	// Limit 总处理上限；0=不限。
-	Limit int
+	Limit         int
+	UserID        *uint64
+	CreatedAfter  *time.Time
+	CreatedBefore *time.Time
 }
 
 // MigrateJob 进程内搬迁任务（含 mutex，禁止值拷贝；对外用 Snapshot）。
@@ -42,6 +45,9 @@ type MigrateJob struct {
 	DryRun        bool
 	DeleteSource  bool
 	Limit         int
+	UserID        *uint64
+	CreatedAfter  *time.Time
+	CreatedBefore *time.Time
 	Status        string
 	Progress      MigrateProgress
 	CursorAfterID uint64
@@ -177,15 +183,18 @@ func (r *Resolver) StartMigrateJob(opts MigrateJobOpts) (*MigrateJobView, error)
 	}
 	now := time.Now()
 	job := &MigrateJob{
-		ID:           id,
-		FromPolicyID: opts.FromPolicyID,
-		ToPolicyID:   opts.ToPolicyID,
-		DryRun:       opts.DryRun,
-		DeleteSource: opts.DeleteSource,
-		Limit:        opts.Limit,
-		Status:       MigrateJobPending,
-		CreatedAt:    now,
-		UpdatedAt:    now,
+		ID:            id,
+		FromPolicyID:  opts.FromPolicyID,
+		ToPolicyID:    opts.ToPolicyID,
+		DryRun:        opts.DryRun,
+		DeleteSource:  opts.DeleteSource,
+		Limit:         opts.Limit,
+		UserID:        opts.UserID,
+		CreatedAfter:  opts.CreatedAfter,
+		CreatedBefore: opts.CreatedBefore,
+		Status:        MigrateJobPending,
+		CreatedAt:     now,
+		UpdatedAt:     now,
 	}
 	r.jobsMu.Lock()
 	if r.jobs == nil {
@@ -224,13 +233,16 @@ func (r *Resolver) runMigrateJob(db *gorm.DB, job *MigrateJob) {
 			batchLimit = remaining
 		}
 		batch, err := r.MigrateFiles(ctx, db, MigrateOpts{
-			FromPolicyID: job.FromPolicyID,
-			ToPolicyID:   job.ToPolicyID,
-			DryRun:       job.DryRun,
-			DeleteSource: job.DeleteSource,
-			Limit:        batchLimit,
-			AfterID:      cursor,
-			SkipMutex:    true,
+			FromPolicyID:  job.FromPolicyID,
+			ToPolicyID:    job.ToPolicyID,
+			DryRun:        job.DryRun,
+			DeleteSource:  job.DeleteSource,
+			Limit:         batchLimit,
+			AfterID:       cursor,
+			SkipMutex:     true,
+			UserID:        job.UserID,
+			CreatedAfter:  job.CreatedAfter,
+			CreatedBefore: job.CreatedBefore,
 		})
 		if batch.LastFileID > 0 {
 			cursor = batch.LastFileID

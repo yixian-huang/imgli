@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"path"
 	"strings"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -38,6 +39,14 @@ type MigrateOpts struct {
 	AfterID uint64
 	// SkipMutex 为 true 时不获取/释放 from 互斥（由外层 job 持有锁时使用）。
 	SkipMutex bool
+	// UserID 非空时只搬该用户图片引用的 file（images.file_id）。
+	UserID *uint64
+	// CreatedAfter / CreatedBefore 按 files.created_at 过滤（含边界）。
+	CreatedAfter  *time.Time
+	CreatedBefore *time.Time
+	// VerifySize Put 后校验目标对象可读长度与 files.size；不一致则不改 policy（计 Failed）。
+	// 默认 true；仅测试可关。
+	VerifySize *bool
 }
 
 // MigrateResult 搬迁汇总（可直接作为 Admin 进度负载的字段源；不含策略 Config）。
@@ -142,8 +151,22 @@ func (r *Resolver) MigrateFiles(ctx context.Context, db *gorm.DB, opts MigrateOp
 	if opts.AfterID > 0 {
 		q = q.Where("id > ?", opts.AfterID)
 	}
+	if opts.UserID != nil {
+		sub := db.Model(&model.Image{}).Select("file_id").Where("user_id = ?", *opts.UserID)
+		q = q.Where("id IN (?)", sub)
+	}
+	if opts.CreatedAfter != nil {
+		q = q.Where("created_at >= ?", *opts.CreatedAfter)
+	}
+	if opts.CreatedBefore != nil {
+		q = q.Where("created_at <= ?", *opts.CreatedBefore)
+	}
 	if opts.Limit > 0 {
 		q = q.Limit(opts.Limit)
+	}
+	verifySize := true
+	if opts.VerifySize != nil {
+		verifySize = *opts.VerifySize
 	}
 	var files []model.File
 	if err := q.Find(&files).Error; err != nil {
@@ -186,6 +209,16 @@ func (r *Resolver) MigrateFiles(ctx context.Context, db *gorm.DB, opts MigrateOp
 			out.Failed++
 			out.addErr(fmt.Sprintf("file#%d put %s: %v", f.ID, RedactStoragePath(f.Path), err))
 			continue
+		}
+		if verifySize && f.Size > 0 {
+			got, serr := objectSize(ctx, dst, f.Path)
+			if serr != nil || got != f.Size {
+				out.Failed++
+				out.addErr(fmt.Sprintf("file#%d size mismatch path=%s want=%d got=%d err=%v",
+					f.ID, RedactStoragePath(f.Path), f.Size, got, serr))
+				_ = dst.Delete(ctx, f.Path) // 不留下半截对象冒充成功
+				continue
+			}
 		}
 		// 缩略图 best-effort：现行世代 + 遗留键一并搬
 		for _, tk := range ThumbKeyCandidates(f.Surface, f.Hash) {
@@ -257,6 +290,15 @@ func copyObject(ctx context.Context, src, dst storage.Driver, key string) error 
 		_ = err
 	}
 	return dst.Put(ctx, key, rc)
+}
+
+func objectSize(ctx context.Context, d storage.Driver, key string) (int64, error) {
+	rc, err := d.Open(ctx, key)
+	if err != nil {
+		return 0, err
+	}
+	defer rc.Close()
+	return rc.Seek(0, io.SeekEnd)
 }
 
 func (r *MigrateResult) addErr(msg string) {

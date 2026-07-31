@@ -219,6 +219,9 @@ export function useStartStorageMigrate() {
       dry_run?: boolean
       delete_source?: boolean
       limit?: number
+      user_id?: number
+      created_after?: string
+      created_before?: string
     }) => post<StorageMigrateJob>('/admin/storage/migrate', body),
     onError: toastApiError,
   })

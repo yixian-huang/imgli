@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"testing"
 
@@ -190,6 +191,103 @@ func TestMigrateResultProgressNoSecretsShape(t *testing.T) {
 	p.SamplePaths[0] = "mutated"
 	if res.SamplePaths[0] != "…/07/a.png" {
 		t.Fatal("Progress should copy SamplePaths")
+	}
+}
+
+func TestMigrateFilesSizeMismatchFailsWithoutPolicyFlip(t *testing.T) {
+	dir := t.TempDir()
+	db := model.TestDB(t)
+	to := model.StoragePolicy{
+		Name: "size-to", Driver: "local", Config: map[string]string{"root": "size-b"}, Enabled: true,
+	}
+	if err := db.Create(&to).Error; err != nil {
+		t.Fatal(err)
+	}
+	var from model.StoragePolicy
+	db.First(&from, 1)
+	r := New(&config.Config{DataDir: dir}, db)
+	src, _ := r.Driver(&from)
+	path := "size/bad.png"
+	// object is short
+	if err := src.Put(context.Background(), path, bytes.NewReader([]byte("short"))); err != nil {
+		t.Fatal(err)
+	}
+	f := model.File{
+		Hash: "sizemismatch", StoragePolicyID: from.ID, Path: path,
+		Size: 9999, MIME: "image/png", RefCount: 1, // claim larger size
+	}
+	if err := db.Create(&f).Error; err != nil {
+		t.Fatal(err)
+	}
+	res, err := r.MigrateFiles(context.Background(), db, MigrateOpts{
+		FromPolicyID: from.ID, ToPolicyID: to.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Failed != 1 || res.Copied != 0 {
+		t.Fatalf("want failed=1 copied=0 got %+v", res)
+	}
+	var check model.File
+	db.First(&check, f.ID)
+	if check.StoragePolicyID != from.ID {
+		t.Fatalf("policy should stay on from, got %d", check.StoragePolicyID)
+	}
+}
+
+func TestMigrateFilesUserFilter(t *testing.T) {
+	dir := t.TempDir()
+	db := model.TestDB(t)
+	to := model.StoragePolicy{
+		Name: "uf-to", Driver: "local", Config: map[string]string{"root": "uf-b"}, Enabled: true,
+	}
+	if err := db.Create(&to).Error; err != nil {
+		t.Fatal(err)
+	}
+	u1 := model.User{Username: "mu1", Email: "mu1@t.li", PasswordHash: "x", GroupID: 1}
+	u2 := model.User{Username: "mu2", Email: "mu2@t.li", PasswordHash: "x", GroupID: 1}
+	if err := db.Create(&u1).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&u2).Error; err != nil {
+		t.Fatal(err)
+	}
+	var from model.StoragePolicy
+	if err := db.First(&from, 1).Error; err != nil {
+		t.Fatal(err)
+	}
+	r := New(&config.Config{DataDir: dir}, db)
+	src, err := r.Driver(&from)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, uid := range []uint64{u1.ID, u2.ID} {
+		p := fmt.Sprintf("uf/%d.png", i)
+		if err := src.Put(context.Background(), p, bytes.NewReader([]byte("xx"))); err != nil {
+			t.Fatal(err)
+		}
+		f := model.File{Hash: fmt.Sprintf("ufhash%02d", i), StoragePolicyID: 1, Path: p, Size: 2, MIME: "image/png", RefCount: 1}
+		if err := db.Create(&f).Error; err != nil {
+			t.Fatal(err)
+		}
+		id := uid
+		img := model.Image{
+			Key: fmt.Sprintf("ukey%08dxx", i), UserID: &id, FileID: f.ID,
+			Name: "n.png", Ext: "png", Status: "normal",
+		}
+		if err := db.Create(&img).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	uid := u1.ID
+	res, err := r.MigrateFiles(context.Background(), db, MigrateOpts{
+		FromPolicyID: 1, ToPolicyID: to.ID, UserID: &uid,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Scanned != 1 || res.Copied != 1 {
+		t.Fatalf("user filter: %+v", res)
 	}
 }
 

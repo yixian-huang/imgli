@@ -17,6 +17,7 @@ separate version in `go.mod` or `web/package.json`.
 - **Docs:** `docs/storage-migrate.md` documents Admin migrate path, API, and operator acceptance sketch. (#55)
 - **Admin version + update probe (U1):** `GET /admin/system/version` and operator-triggered `POST /admin/system/check-update` (GitHub `releases/latest`); dashboard shows running version. Build injects `internal/version.Version` via ldflags. (#56)
 - **Admin one-click binary upgrade (U2):** `POST /admin/system/upgrade` with `confirm=true`, checksum-verified GitHub Release asset, in-place binary replace + restart guidance; Docker/container installs refuse binary replace. (#57)
+- **Storage migrate filters + size verify (M3):** optional `user_id` / created time window; post-Put size check blocks silent policy flip on mismatch. (#58)
 
 ## [0.5.1] - 2026-07-31
 
