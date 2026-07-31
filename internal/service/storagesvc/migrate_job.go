@@ -34,8 +34,26 @@ type MigrateJobOpts struct {
 	Limit int
 }
 
-// MigrateJob 进程内搬迁任务状态（可 JSON 给 Admin；不含密钥）。
+// MigrateJob 进程内搬迁任务（含 mutex，禁止值拷贝；对外用 Snapshot）。
 type MigrateJob struct {
+	ID            string
+	FromPolicyID  uint64
+	ToPolicyID    uint64
+	DryRun        bool
+	DeleteSource  bool
+	Limit         int
+	Status        string
+	Progress      MigrateProgress
+	CursorAfterID uint64
+	Error         string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+
+	mu sync.Mutex
+}
+
+// MigrateJobView 无锁 API 视图（可安全拷贝 / JSON）。
+type MigrateJobView struct {
 	ID            string          `json:"id"`
 	FromPolicyID  uint64          `json:"from_policy_id"`
 	ToPolicyID    uint64          `json:"to_policy_id"`
@@ -48,23 +66,28 @@ type MigrateJob struct {
 	Error         string          `json:"error,omitempty"`
 	CreatedAt     time.Time       `json:"created_at"`
 	UpdatedAt     time.Time       `json:"updated_at"`
-
-	mu sync.Mutex
 }
 
-// Snapshot 返回无锁竞争的拷贝，供 API 序列化。
-func (j *MigrateJob) Snapshot() MigrateJob {
+// Snapshot 返回无锁视图，供 API 序列化。
+func (j *MigrateJob) Snapshot() MigrateJobView {
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	out := *j
-	out.Progress = j.Progress // Progress 已是值类型含拷贝切片
+	out := MigrateJobView{
+		ID: j.ID, FromPolicyID: j.FromPolicyID, ToPolicyID: j.ToPolicyID,
+		DryRun: j.DryRun, DeleteSource: j.DeleteSource, Limit: j.Limit,
+		Status: j.Status, CursorAfterID: j.CursorAfterID, Error: j.Error,
+		CreatedAt: j.CreatedAt, UpdatedAt: j.UpdatedAt,
+		Progress: MigrateProgress{
+			Scanned: j.Progress.Scanned, Copied: j.Progress.Copied,
+			Skipped: j.Progress.Skipped, Failed: j.Progress.Failed,
+		},
+	}
 	if j.Progress.SamplePaths != nil {
 		out.Progress.SamplePaths = append([]string(nil), j.Progress.SamplePaths...)
 	}
 	if j.Progress.Errors != nil {
 		out.Progress.Errors = append([]string(nil), j.Progress.Errors...)
 	}
-	out.mu = sync.Mutex{}
 	return out
 }
 
@@ -117,7 +140,7 @@ func (j *MigrateJob) finish(status, errMsg string) {
 
 // StartMigrateJob 校验参数、占用 from 互斥、异步批跑，立即返回 job 快照。
 // 进程重启后内存 job 丢失；重新发起即可（已 cutover 的 file 不再命中 from 策略，天然幂等）。
-func (r *Resolver) StartMigrateJob(opts MigrateJobOpts) (*MigrateJob, error) {
+func (r *Resolver) StartMigrateJob(opts MigrateJobOpts) (*MigrateJobView, error) {
 	db := r.db
 	if db == nil {
 		return nil, errors.New("storagesvc: db 未配置")
@@ -177,12 +200,12 @@ func (r *Resolver) StartMigrateJob(opts MigrateJobOpts) (*MigrateJob, error) {
 }
 
 // GetMigrateJob 按 id 取快照；不存在返回 false。
-func (r *Resolver) GetMigrateJob(id string) (MigrateJob, bool) {
+func (r *Resolver) GetMigrateJob(id string) (MigrateJobView, bool) {
 	r.jobsMu.Lock()
 	j, ok := r.jobs[id]
 	r.jobsMu.Unlock()
 	if !ok {
-		return MigrateJob{}, false
+		return MigrateJobView{}, false
 	}
 	return j.Snapshot(), true
 }

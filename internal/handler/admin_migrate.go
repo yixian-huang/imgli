@@ -19,7 +19,7 @@ type migrateJobStartRequest struct {
 	Limit        int    `json:"limit"`
 }
 
-func migrateJobDTO(j storagesvc.MigrateJob) map[string]any {
+func migrateJobDTO(j storagesvc.MigrateJobView) map[string]any {
 	return map[string]any{
 		"id":              j.ID,
 		"from_policy_id":  j.FromPolicyID,

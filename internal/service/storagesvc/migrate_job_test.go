@@ -51,7 +51,7 @@ func TestMigrateJobLocalToLocal(t *testing.T) {
 		t.Fatal(err)
 	}
 	deadline := time.Now().Add(5 * time.Second)
-	var snap MigrateJob
+	var snap MigrateJobView
 	for time.Now().Before(deadline) {
 		var ok bool
 		snap, ok = r.GetMigrateJob(job.ID)
