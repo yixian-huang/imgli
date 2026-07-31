@@ -10,6 +10,10 @@ separate version in `go.mod` or `web/package.json`.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-07-31
+
+Theme: **Ops · Migrate · Trust** — admin storage migrate jobs, lifecycle cleanup, version probe/upgrade.
+
 ### Added
 
 - **Storage migrate safety (M2):** process-local mutex per source policy (`ErrMigrateBusy`); disabled target returns `ErrMigrateTargetDisabled`; `MigrateResult.Progress()` / `RedactStoragePath` for admin-safe status (counts + redacted paths, no policy secrets). (#53)
@@ -206,7 +210,10 @@ Theme: **Workflow & Trust** — CLI/integrations, share landing, privacy
 - Bilingual UI (中文/English), PWA, dark mode, text watermark, admin audit logs.
 - Docker Compose quick start and GitHub Actions CI (Go matrix, web, e2e smoke).
 
-[Unreleased]: https://github.com/yixian-huang/imgli/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/yixian-huang/imgli/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/yixian-huang/imgli/compare/v0.5.1...v0.6.0
+[0.5.1]: https://github.com/yixian-huang/imgli/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/yixian-huang/imgli/compare/v0.4.1...v0.5.0
 [0.3.0]: https://github.com/yixian-huang/imgli/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/yixian-huang/imgli/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/yixian-huang/imgli/compare/v0.1.0...v0.1.1
