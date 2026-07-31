@@ -5,6 +5,7 @@ import (
 
 	"github.com/yixian-huang/imgli/internal/mail"
 	"github.com/yixian-huang/imgli/internal/service/adminsvc"
+	"github.com/yixian-huang/imgli/internal/service/imagesvc"
 	"github.com/yixian-huang/imgli/internal/service/moderation"
 	"github.com/yixian-huang/imgli/internal/service/stats"
 	"github.com/yixian-huang/imgli/internal/service/storagesvc"
@@ -15,6 +16,7 @@ import (
 type AdminDeps struct {
 	Adm     *adminsvc.Service
 	Res     *storagesvc.Resolver
+	Img     *imagesvc.Service // 生命周期清理等
 	Mail    *mail.Service
 	Stats   *stats.Service
 	Mod     *moderation.Service // 可选；拒绝通知

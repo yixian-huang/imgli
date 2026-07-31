@@ -168,7 +168,7 @@ func (s *Server) mountAPI() {
 	authSvc.Mailer = mailSvc
 	authSvc.BaseURL = s.opts.Cfg.BaseURL
 	admH := &handler.AdminHandlers{D: handler.AdminDeps{
-		Adm: adm, Res: storageRes, Mail: mailSvc, Stats: s.stats, Mod: modSvc, Hooks: hooks,
+		Adm: adm, Res: storageRes, Img: imgSvc, Mail: mailSvc, Stats: s.stats, Mod: modSvc, Hooks: hooks,
 		OwnHost: baseHost(s.opts.Cfg.BaseURL),
 	}}
 
@@ -282,6 +282,8 @@ func (s *Server) mountAPI() {
 				ar.Get("/system/version", admH.GetSystemVersion)
 				ar.Post("/system/check-update", admH.CheckSystemUpdate)
 				ar.Post("/system/upgrade", admH.UpgradeSystem)
+				ar.Post("/cleanup/preview", admH.PreviewCleanup)
+				ar.Post("/cleanup/run", admH.RunCleanup)
 				ar.Get("/settings", admH.GetSettings)
 				ar.Put("/settings", admH.PutSettings)
 				ar.Post("/settings/smtp/test", admH.TestSMTP)
