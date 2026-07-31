@@ -152,4 +152,9 @@ export default {
   updateAvailableToast: '可更新到 {latest}',
   updateCheckFailed: '探测失败：{err}',
   releaseNotes: '发行说明',
+  upgradeTo: '一键升级到 {latest}',
+  upgradeConfirm: '确认下载并替换当前二进制为 {latest}？请确保可写安装路径；完成后需重启进程。Docker 部署请改用镜像更新。',
+  upgradeDone: '已替换为 {to}，请重启 imgli 进程',
+  upgradeDoneToast: '升级完成，请重启服务',
+  upgradeFailed: '升级失败',
 }

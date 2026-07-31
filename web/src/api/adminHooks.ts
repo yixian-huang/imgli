@@ -40,6 +40,24 @@ export function useCheckSystemUpdate() {
   })
 }
 
+export interface SystemUpgradeResult {
+  from?: string
+  to?: string
+  executable?: string
+  restart?: string
+  mode?: string
+  message?: string
+  error?: string
+}
+
+export function useSystemUpgrade() {
+  return useMutation({
+    mutationFn: (body: { confirm: boolean; tag?: string }) =>
+      post<SystemUpgradeResult>('/admin/system/upgrade', body),
+    onError: toastApiError,
+  })
+}
+
 export function useAdminRefererImages(host: string | null, days = 30) {
   const p = new URLSearchParams()
   if (host) p.set('host', host)

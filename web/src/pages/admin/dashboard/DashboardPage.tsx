@@ -5,6 +5,7 @@ import {
   useAdminRefererImages,
   useAdminStats,
   useCheckSystemUpdate,
+  useSystemUpgrade,
   useSystemVersion,
 } from '../../../api/adminHooks'
 import { useT } from '../../../i18n'
@@ -26,13 +27,16 @@ export function DashboardPage() {
   const logs = useAdminLogs({ limit: 8 })
   const verQ = useSystemVersion()
   const checkUpdate = useCheckSystemUpdate()
+  const doUpgrade = useSystemUpgrade()
   const [refWindow, setRefWindow] = useState<RefWindow>(30)
   const [selectedHost, setSelectedHost] = useState<string | null>(null)
   const [updateMsg, setUpdateMsg] = useState<string | null>(null)
+  const [latestTag, setLatestTag] = useState<string | null>(null)
   const hostImages = useAdminRefererImages(selectedHost, refWindow)
 
   const onCheckUpdate = () => {
     setUpdateMsg(null)
+    setLatestTag(null)
     checkUpdate.mutate(undefined, {
       onSuccess: (r) => {
         if (r.error) {
@@ -40,7 +44,8 @@ export function DashboardPage() {
           return
         }
         if (r.update_available) {
-          setUpdateMsg(t('adminA.updateAvailable', { latest: r.latest ?? '?', url: r.release_url ?? '' }))
+          setLatestTag(r.latest ?? null)
+          setUpdateMsg(t('adminA.updateAvailable', { latest: r.latest ?? '?' }))
           if (r.release_url) {
             useGlobal.getState().pushToast(t('adminA.updateAvailableToast', { latest: r.latest ?? '' }))
           }
@@ -49,6 +54,24 @@ export function DashboardPage() {
         }
       },
     })
+  }
+
+  const onUpgrade = () => {
+    if (!latestTag) return
+    if (!window.confirm(t('adminA.upgradeConfirm', { latest: latestTag }))) return
+    doUpgrade.mutate(
+      { confirm: true, tag: latestTag },
+      {
+        onSuccess: (r) => {
+          if (r.mode === 'docker_blocked' || r.error) {
+            setUpdateMsg(r.message || r.error || t('adminA.upgradeFailed'))
+            return
+          }
+          setUpdateMsg(r.message || t('adminA.upgradeDone', { to: r.to ?? latestTag }))
+          useGlobal.getState().pushToast(t('adminA.upgradeDoneToast'))
+        },
+      },
+    )
   }
 
   return (
@@ -60,6 +83,11 @@ export function DashboardPage() {
         <Button variant="secondary" disabled={checkUpdate.isPending} onClick={onCheckUpdate}>
           {t('adminA.checkUpdate')}
         </Button>
+        {latestTag && (
+          <Button variant="primary" disabled={doUpgrade.isPending} onClick={onUpgrade}>
+            {t('adminA.upgradeTo', { latest: latestTag })}
+          </Button>
+        )}
         {updateMsg && (
           <span className={styles.versionMsg}>
             {updateMsg}

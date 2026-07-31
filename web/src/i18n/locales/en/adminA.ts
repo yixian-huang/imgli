@@ -152,4 +152,10 @@ export default {
   updateAvailableToast: 'Update available: {latest}',
   updateCheckFailed: 'Check failed: {err}',
   releaseNotes: 'Release notes',
+  upgradeTo: 'Upgrade to {latest}',
+  upgradeConfirm:
+    'Download and replace the running binary with {latest}? The install path must be writable; restart the process afterward. For Docker, pull a new image instead.',
+  upgradeDone: 'Replaced with {to}; restart the imgli process',
+  upgradeDoneToast: 'Upgrade complete — restart the service',
+  upgradeFailed: 'Upgrade failed',
 }
