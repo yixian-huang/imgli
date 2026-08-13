@@ -386,6 +386,8 @@ export function UploadPage() {
         onDragLeave={() => setDrag(false)}
         onDrop={(e) => {
           e.preventDefault()
+          e.stopPropagation()
+          setPageDrag(false)
           setDrag(false)
           acceptFiles(e.dataTransfer.files)
         }}

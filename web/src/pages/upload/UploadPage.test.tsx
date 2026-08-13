@@ -6,6 +6,7 @@ import { sessionKey } from '../../api/hooks'
 import type { User } from '../../api/types'
 import { useGlobal } from '../../store'
 import { useUploadQueue, type QueueItem } from '../../upload/queue'
+import { uploadFile } from '../../upload/uploader'
 import { UploadPage } from './UploadPage'
 
 vi.mock('../../upload/uploader', () => ({
@@ -159,13 +160,18 @@ it('选 7 天有效期 → 入队 opts.expiresIn=604800', async () => {
   expect(useUploadQueue.getState().items[0]?.opts.expiresIn).toBe(604800)
 })
 
-it('拖放文件入队', async () => {
+it('拖放文件只入队并上传一次，且清除拖拽提示', async () => {
   renderPage()
   await screen.findByText(/MAX 20 MB/) // 等 quota 加载完成（limits 就绪才可入队）
   const dz = screen.getByTestId('dropzone')
   const file = new File([new Uint8Array(10)], 'drop.png', { type: 'image/png' })
+  fireEvent.dragOver(dz, { dataTransfer: { files: [file], types: ['Files'] } })
+  expect(screen.getAllByText('松开即上传')).toHaveLength(2)
   fireEvent.drop(dz, { dataTransfer: { files: [file], types: ['Files'] } })
-  expect(useUploadQueue.getState().items.some((i) => i.name === 'drop.png')).toBe(true)
+  expect(useUploadQueue.getState().items).toHaveLength(1)
+  expect(useUploadQueue.getState().items[0]?.name).toBe('drop.png')
+  expect(uploadFile).toHaveBeenCalledTimes(1)
+  expect(screen.queryByText('松开即上传')).not.toBeInTheDocument()
 })
 
 it('URL 抓取行：非法 URL toast，合法入队', async () => {
