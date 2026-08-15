@@ -29,17 +29,17 @@ const (
 	SettingFooter       = "footer"       // 页脚链接组 JSON
 	SettingHTMLInject   = "html_inject"  // 自定义 HTML 注入 JSON（head / body_end）
 	// 站长可配公开文案/CTA（默认空/关；运营站用 Admin 填，不硬编码作者域名）
-	SettingHelpURL         = "help_url"          // 帮助/文档链接（可选）
-	SettingUpgradeURL      = "upgrade_url"       // 满额/升级/自托管说明（可选）
-	SettingRegisterNotice  = "register_notice"   // 注册页短说明（可选）
-	SettingShareBranding   = "share_branding"    // off | site | links
+	SettingHelpURL        = "help_url"        // 帮助/文档链接（可选）
+	SettingUpgradeURL     = "upgrade_url"     // 满额/升级/自托管说明（可选）
+	SettingRegisterNotice = "register_notice" // 注册页短说明（可选）
+	SettingShareBranding  = "share_branding"  // off | site | links
 	// v0.5 轻度站配 / AGPL 合规辅助（单实例 OSS；非白标）
-	SettingFaviconURL      = "favicon_url"       // 可选自定义 favicon URL；空=内置 brand
-	SettingSourceURL       = "source_url"        // AGPL 对应源码 URL；空不展示
-	SettingOSSCredit       = "oss_credit"        // on | off；页脚「基于 imgli」默认可关
-	SettingAboutEnabled    = "about_enabled"     // 是否启用 /about
-	SettingAboutBody       = "about_body"        // 关于页正文 locale map {zh,en}
-	SettingWelcomeEmail    = "welcome_email"     // bool；SMTP 已配时注册欢迎信，默认 true
+	SettingFaviconURL   = "favicon_url"   // 可选自定义 favicon URL；空=内置 brand
+	SettingSourceURL    = "source_url"    // AGPL 对应源码 URL；空不展示
+	SettingOSSCredit    = "oss_credit"    // on | off；页脚「基于 imgli」默认可关
+	SettingAboutEnabled = "about_enabled" // 是否启用 /about
+	SettingAboutBody    = "about_body"    // 关于页正文 locale map {zh,en}
+	SettingWelcomeEmail = "welcome_email" // bool；SMTP 已配时注册欢迎信，默认 true
 	// v0.9.5 轻视觉：强调色 + 可选站点背景图
 	SettingThemeAccent     = "theme_accent"       // 空 | #RRGGBB；驱动主按钮/强调
 	SettingThemeBgColor    = "theme_bg_color"     // 空 | #RGB/#RRGGBB；整站纯色底（可与背景图叠加）
@@ -72,6 +72,7 @@ const settingProcessingDefaultJSON = `{"text_watermark":{"enabled":false,"text":
 // 插槽默认 JSON：与 adminsvc.DefaultAnnouncement/Footer/HTMLInject 一致。
 const settingAnnouncementDefaultJSON = `{"enabled":false,"text":{"zh":"","en":""},"link_url":"","link_label":{"zh":"","en":""},"dismissible":true,"starts_at":"","ends_at":""}`
 const settingFooterDefaultJSON = `{"groups":[]}`
+
 // register_notice 播种为 locale map；历史库可能是纯字符串，读侧 LocaleString 兼容。
 const settingRegisterNoticeDefaultJSON = `{"zh":"","en":""}`
 const settingHTMLInjectDefaultJSON = `{"head":"","body_end":""}`
@@ -141,7 +142,14 @@ func Migrate(db *gorm.DB) error {
 	if err := db.FirstOrCreate(&SchemaVersion{Version: 7}).Error; err != nil {
 		return err
 	}
-	return migrateBandwidthDefaults(db)
+	if err := migrateBandwidthDefaults(db); err != nil {
+		return err
+	}
+	// v8：存量「私密相册 + public 图」改为 private，堵住匿名 /i 直链。
+	if err := db.FirstOrCreate(&SchemaVersion{Version: 8}).Error; err != nil {
+		return err
+	}
+	return migratePrivateAlbumImages(db)
 }
 
 // FreeBandwidthQuotaMonth Free/默认组第一期月流量硬顶：5 GiB。
@@ -174,6 +182,20 @@ func migrateGuestLifecycleDefaults(db *gorm.DB) error {
 // SQLite 与 Postgres 均支持 DROP INDEX IF EXISTS。
 // (全新 SQLite 库上该复合索引曾被 FK 重建丢弃,S1 曾在此手工补建;现由 Migrate 的
 // ensureIndexes 按模型声明统一补齐,本函数只管「删旧」,不再管「补新」。)
+// migratePrivateAlbumImages 把私密相册内仍为 public 的 live 图改为 private。
+// 幂等；只改 visibility（门禁 /i），不搬 surface 对象。
+func migratePrivateAlbumImages(db *gorm.DB) error {
+	return db.Exec(`
+		UPDATE images SET visibility = ?
+		WHERE deleted_at IS NULL
+		  AND visibility = ?
+		  AND album_id IS NOT NULL
+		  AND EXISTS (
+		    SELECT 1 FROM albums WHERE albums.id = images.album_id AND albums.visibility = ?
+		  )
+	`, "private", "public", "private").Error
+}
+
 func migrateSurface(db *gorm.DB) error {
 	if err := db.Exec("UPDATE files SET surface = ? WHERE surface IS NULL OR surface = ''", SurfacePublic).Error; err != nil {
 		return err
@@ -235,17 +257,17 @@ func Seed(db *gorm.DB) error {
 			SettingAnnouncement:     settingAnnouncementDefaultJSON,
 			SettingFooter:           settingFooterDefaultJSON,
 			SettingHTMLInject:       settingHTMLInjectDefaultJSON,
-			SettingHelpURL:         `""`,
-			SettingUpgradeURL:      `""`,
-			SettingRegisterNotice:  settingRegisterNoticeDefaultJSON,
+			SettingHelpURL:          `""`,
+			SettingUpgradeURL:       `""`,
+			SettingRegisterNotice:   settingRegisterNoticeDefaultJSON,
 			// 默认 site：展示站名；开源产品署名在前端始终保留
-			SettingShareBranding: `"site"`,
-			SettingFaviconURL:    `""`,
-			SettingSourceURL:     `""`,
-			SettingOSSCredit:     `"on"`,
-			SettingAboutEnabled:  `false`,
-			SettingAboutBody:     `{"zh":"","en":""}`,
-			SettingWelcomeEmail:  `true`,
+			SettingShareBranding:   `"site"`,
+			SettingFaviconURL:      `""`,
+			SettingSourceURL:       `""`,
+			SettingOSSCredit:       `"on"`,
+			SettingAboutEnabled:    `false`,
+			SettingAboutBody:       `{"zh":"","en":""}`,
+			SettingWelcomeEmail:    `true`,
 			SettingThemeAccent:     `""`,
 			SettingThemeBgColor:    `""`,
 			SettingThemeBgImageURL: `""`,

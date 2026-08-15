@@ -53,6 +53,59 @@ func TestMigrateAndSeedIdempotent(t *testing.T) {
 	}
 }
 
+func TestMigratePrivateAlbumImages(t *testing.T) {
+	db := TestDB(t)
+	u := User{Username: "m", Email: "m@img.li", GroupID: 1}
+	if err := db.Create(&u).Error; err != nil {
+		t.Fatal(err)
+	}
+	priv := Album{UserID: u.ID, Name: "p", Visibility: "private"}
+	pub := Album{UserID: u.ID, Name: "o", Visibility: "public"}
+	if err := db.Create(&priv).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&pub).Error; err != nil {
+		t.Fatal(err)
+	}
+	f := File{Hash: "h", StoragePolicyID: 1, Path: "p", Size: 1, RefCount: 1}
+	if err := db.Create(&f).Error; err != nil {
+		t.Fatal(err)
+	}
+	leak := Image{Key: "leakkey000001", UserID: &u.ID, FileID: f.ID, AlbumID: &priv.ID, Name: "a", Ext: "png", Visibility: "public", Status: "normal"}
+	ok := Image{Key: "okkey00000001", UserID: &u.ID, FileID: f.ID, AlbumID: &pub.ID, Name: "b", Ext: "png", Visibility: "public", Status: "normal"}
+	loose := Image{Key: "loosekey00001", UserID: &u.ID, FileID: f.ID, Name: "c", Ext: "png", Visibility: "public", Status: "normal"}
+	if err := db.Create(&leak).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&ok).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&loose).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := migratePrivateAlbumImages(db); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.First(&leak, leak.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.First(&ok, ok.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.First(&loose, loose.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if leak.Visibility != "private" {
+		t.Errorf("私密相册内 public 图应被改 private, got %q", leak.Visibility)
+	}
+	if ok.Visibility != "public" {
+		t.Errorf("公开相册图不应被改, got %q", ok.Visibility)
+	}
+	if loose.Visibility != "public" {
+		t.Errorf("未分类图不应被改, got %q", loose.Visibility)
+	}
+}
+
 func TestSQLiteForeignKeysPragmaOn(t *testing.T) {
 	dir := t.TempDir()
 	cfg := &config.Config{DataDir: dir, Database: config.Database{Driver: "sqlite"}}

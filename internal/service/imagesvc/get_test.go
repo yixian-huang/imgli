@@ -51,6 +51,37 @@ func TestGetPublicSharePrivateNotFound(t *testing.T) {
 	}
 }
 
+// TestGetPublicSharePrivateAlbumNotFound 图仍是 public、但父相册已私密时，
+// /s 与 OG 不得当公开分享（防御遗留行 / 竞态）。
+func TestGetPublicSharePrivateAlbumNotFound(t *testing.T) {
+	s, uid := setupSvc(t)
+	alb := &model.Album{UserID: uid, Name: "密", Visibility: "private"}
+	if err := s.db.Create(alb).Error; err != nil {
+		t.Fatal(err)
+	}
+	var img model.Image
+	if err := s.db.Where("key = ?", "alphakey01").First(&img).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := s.db.Model(&img).Update("album_id", alb.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.GetPublicShare(img.Key); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("私密相册内的 public 图分享页应 ErrNotFound, got %v", err)
+	}
+
+	pub := &model.Album{UserID: uid, Name: "开", Visibility: "public"}
+	if err := s.db.Create(pub).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := s.db.Model(&img).Update("album_id", pub.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.GetPublicShare(img.Key); err != nil {
+		t.Fatalf("公开相册内的 public 图应可分享, got %v", err)
+	}
+}
+
 func TestGetPublicSharePendingRejectedExpired(t *testing.T) {
 	s, uid := setupSvc(t)
 	past := time.Now().Add(-time.Hour)

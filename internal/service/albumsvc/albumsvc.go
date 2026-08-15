@@ -10,23 +10,34 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/yixian-huang/imgli/internal/model"
+	"github.com/yixian-huang/imgli/internal/service/imagesvc"
 )
 
 var (
-	ErrNotFound            = errors.New("albumsvc: 相册不存在")
-	ErrInvalidName         = errors.New("albumsvc: 名称需 1-128 字节")
-	ErrInvalidVisibility   = errors.New("albumsvc: 可见性仅 public|private")
-	ErrInvalidDefaultView  = errors.New("albumsvc: 默认视图仅 gallery|immersive")
-	ErrInvalidDescription  = errors.New("albumsvc: 描述过长")
-	ErrInvalidCover        = errors.New("albumsvc: 封面图不在此相册")
-	ErrInvalidPassword     = errors.New("albumsvc: 口令不合法")
-	ErrBadPassword         = errors.New("albumsvc: 口令错误")
-	ErrInvalidReorder      = errors.New("albumsvc: 排序 keys 无效")
+	ErrNotFound           = errors.New("albumsvc: 相册不存在")
+	ErrInvalidName        = errors.New("albumsvc: 名称需 1-128 字节")
+	ErrInvalidVisibility  = errors.New("albumsvc: 可见性仅 public|private")
+	ErrInvalidDefaultView = errors.New("albumsvc: 默认视图仅 gallery|immersive")
+	ErrInvalidDescription = errors.New("albumsvc: 描述过长")
+	ErrInvalidCover       = errors.New("albumsvc: 封面图不在此相册")
+	ErrInvalidPassword    = errors.New("albumsvc: 口令不合法")
+	ErrBadPassword        = errors.New("albumsvc: 口令错误")
+	ErrInvalidReorder     = errors.New("albumsvc: 排序 keys 无效")
+	ErrAlbumForcesPrivate = errors.New("albumsvc: 私密相册内的图必须为 private")
 )
 
-type Service struct{ db *gorm.DB }
+type Service struct {
+	db  *gorm.DB
+	img *imagesvc.Service
+}
 
 func New(db *gorm.DB) *Service { return &Service{db: db} }
+
+// WithImages 接入 imagesvc，使批量改可见性走 surface 重挂。测试可省略。
+func (s *Service) WithImages(img *imagesvc.Service) *Service {
+	s.img = img
+	return s
+}
 
 // OwnerPublic 公开相册页可选作者信息（不泄露邮箱等）。
 type OwnerPublic struct {
@@ -147,10 +158,17 @@ func (s *Service) Create(userID uint64, name, visibility string) (*model.Album, 
 	}
 	alb := &model.Album{
 		UserID: userID, Name: name, Visibility: vis,
-		DefaultView: "gallery", ClickToImmersive: true, ListInPlaza: true,
+		DefaultView: "gallery", ClickToImmersive: true, ListInPlaza: vis == "public",
 	}
 	if err := s.db.Create(alb).Error; err != nil {
 		return nil, err
+	}
+	if vis == "private" {
+		// GORM 对 bool 零值会跳过写入，default:true 会把 false 吃掉。
+		if err := s.db.Model(alb).Update("list_in_plaza", false).Error; err != nil {
+			return nil, err
+		}
+		alb.ListInPlaza = false
 	}
 	return alb, nil
 }
@@ -299,7 +317,7 @@ var timeNow = func() time.Time { return time.Now() }
 
 // UpdatePatch 属主更新相册可选字段；指针 nil 表示不改。
 // AccessPassword：nil=不改；""=清除；非空=写入哈希。
-// CoverKey：nil=不改；""=清除手动封面；非空=校验图在相册内。
+// CoverKey：nil=不改；""=清除手动封面；非空=校验图在相册内（公开相册还须可公开陈列）。
 type UpdatePatch struct {
 	Name             *string
 	Visibility       *string
@@ -328,12 +346,19 @@ func (s *Service) Update(userID, id uint64, p UpdatePatch) (*model.Album, error)
 		}
 		updates["name"] = n
 	}
+	becamePrivate := false
 	if p.Visibility != nil {
 		v, err := normVis(*p.Visibility)
 		if err != nil {
 			return nil, err
 		}
 		updates["visibility"] = v
+		if v == "private" {
+			becamePrivate = true
+			if p.ListInPlaza == nil {
+				updates["list_in_plaza"] = false
+			}
+		}
 	}
 	if p.DefaultView != nil {
 		dv, err := normDefaultView(*p.DefaultView)
@@ -357,10 +382,16 @@ func (s *Service) Update(userID, id uint64, p UpdatePatch) (*model.Album, error)
 		if k == "" {
 			updates["cover_key"] = ""
 		} else {
+			q := s.db.Model(&model.Image{}).
+				Where("key = ? AND album_id = ? AND user_id = ? AND deleted_at IS NULL", k, id, userID)
+			// 公开相册封面会进广场卡 / OG /a/，必须是可公开陈列的图。
+			if alb.Visibility == "public" {
+				q = q.Where("visibility = ? AND status = ?", "public", "normal").
+					Where("(expires_at IS NULL OR expires_at > ?)", timeNow()).
+					Where("(access_password_hash = '' OR access_password_hash IS NULL)")
+			}
 			var n int64
-			if err := s.db.Model(&model.Image{}).
-				Where("key = ? AND album_id = ? AND user_id = ? AND deleted_at IS NULL", k, id, userID).
-				Count(&n).Error; err != nil {
+			if err := q.Count(&n).Error; err != nil {
 				return nil, err
 			}
 			if n == 0 {
@@ -392,6 +423,11 @@ func (s *Service) Update(userID, id uint64, p UpdatePatch) (*model.Album, error)
 			return nil, err
 		}
 		if err := s.db.Where("id = ? AND user_id = ?", id, userID).First(&alb).Error; err != nil {
+			return nil, err
+		}
+	}
+	if becamePrivate {
+		if _, err := s.SetImagesVisibility(userID, id, "private"); err != nil {
 			return nil, err
 		}
 	}

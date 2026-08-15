@@ -7,10 +7,12 @@ import (
 	"mime"
 	"net/http"
 	"path"
+	"strconv"
 	"strings"
 
 	"github.com/yixian-huang/imgli/internal/handler"
 	"github.com/yixian-huang/imgli/internal/model"
+	"github.com/yixian-huang/imgli/internal/service/albumsvc"
 	"github.com/yixian-huang/imgli/internal/service/imagesvc"
 	"github.com/yixian-huang/imgli/internal/service/settings"
 	"github.com/yixian-huang/imgli/internal/service/storagesvc"
@@ -27,7 +29,7 @@ const noBuildHTML = `<!doctype html><meta charset="utf-8"><title>img.li</title>
 
 // mountWeb 挂载 SPA：/assets/* 走 immutable 静态服务；其余 GET/HEAD 未匹配
 // 且不属 API/直链/带扩展名的路径回落 index.html。API 路径 404 信封不变
-//（/api/v1 子路由在本方法执行前已捕获 JSON NotFound）。
+// （/api/v1 子路由在本方法执行前已捕获 JSON NotFound）。
 func (s *Server) mountWeb(dist fs.FS) {
 	fileServer := http.FileServer(http.FS(dist))
 	s.mux.Handle("/assets/*", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -160,17 +162,19 @@ func (s *Server) ogInject(r *http.Request) string {
 	case strings.HasPrefix(p, "/a/"):
 		idStr := strings.TrimPrefix(p, "/a/")
 		idStr = strings.Split(idStr, "/")[0]
-		var alb model.Album
-		if err := s.opts.DB.Where("id = ? AND visibility = ?", idStr, "public").First(&alb).Error; err != nil {
+		id, err := strconv.ParseUint(idStr, 10, 64)
+		if err != nil || id == 0 {
 			return ""
 		}
-		title := html.EscapeString(alb.Name)
+		v, err := albumsvc.New(s.opts.DB).GetPublic(id)
+		if err != nil || v == nil {
+			return ""
+		}
+		title := html.EscapeString(v.Album.Name)
 		pageURL := html.EscapeString(base + "/a/" + idStr)
 		imgMeta := ""
-		var cover model.Image
-		if err := s.opts.DB.Where("album_id = ? AND visibility = ? AND status = ?", alb.ID, "public", "normal").
-			Order("created_at DESC").First(&cover).Error; err == nil {
-			iu := html.EscapeString(base + "/t/" + cover.Key + ".jpg")
+		if v.CoverKey != "" {
+			iu := html.EscapeString(base + "/t/" + v.CoverKey + ".jpg")
 			imgMeta = fmt.Sprintf(`
 <meta property="og:image" content="%s"/>
 <meta name="twitter:image" content="%s"/>
@@ -184,7 +188,7 @@ func (s *Server) ogInject(r *http.Request) string {
 <meta property="og:description" content="%s"/>
 <meta property="og:url" content="%s"/>
 <meta name="twitter:card" content="summary_large_image"/>
-%s`, title, html.EscapeString(alb.Name+" · "+siteLabel), pageURL, imgMeta)
+%s`, title, html.EscapeString(v.Album.Name+" · "+siteLabel), pageURL, imgMeta)
 	default:
 		return ""
 	}

@@ -106,6 +106,8 @@ func (s *Service) Save(ctx context.Context, tmpPath, filename string, u *model.U
 	if err != nil {
 		return nil, err
 	}
+	// 私密相册强制图为 private（须在 surface 计算之前），直链 /i 也不能匿名打开。
+	vis = applyAlbumVisibility(s.db, albumID, vis)
 
 	// 策略回退链:显式(须组内 enabled) > 偏好(悬空静默降级) > 组默认
 	policy, err := s.resolvePolicy(&group, u, opts.PolicyID)

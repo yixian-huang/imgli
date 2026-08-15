@@ -281,6 +281,82 @@ func TestPlazaFeed_BadCursor(t *testing.T) {
 	}
 }
 
+func keysOf(rows []Row) map[string]bool {
+	got := make(map[string]bool, len(rows))
+	for _, r := range rows {
+		got[r.Key] = true
+	}
+	return got
+}
+
+func mkAlbum(t *testing.T, db *gorm.DB, uid uint64, name, vis string, listInPlaza bool) model.Album {
+	t.Helper()
+	alb := model.Album{UserID: uid, Name: name, Visibility: vis, ListInPlaza: listInPlaza}
+	if err := db.Create(&alb).Error; err != nil {
+		t.Fatal(err)
+	}
+	// GORM 对 bool 零值会跳过写入，default:true 会把 false 吃掉；显式落库。
+	if err := db.Model(&alb).Update("list_in_plaza", listInPlaza).Error; err != nil {
+		t.Fatal(err)
+	}
+	return alb
+}
+
+func putInAlbum(t *testing.T, db *gorm.DB, img model.Image, albumID uint64) {
+	t.Helper()
+	if err := db.Model(&img).Update("album_id", albumID).Error; err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestPlazaFeed_PrivateAlbumExcluded 私密相册内的 public 图不得进广场/公开主页。
+// 回归：eligible 曾只看 list_in_plaza，私密相册默认 list_in_plaza=true，上传默认 public，
+// 导致「相册设为私密」后图片仍出现在广场。
+func TestPlazaFeed_PrivateAlbumExcluded(t *testing.T) {
+	db := model.TestDB(t)
+	svc := New(db)
+	owner := mkUser(t, db, "owner", true, "active")
+	uid := owner.ID
+
+	priv := mkAlbum(t, db, uid, "secret", "private", true) // 默认路径：私密 + 仍参与广场
+	pub := mkAlbum(t, db, uid, "open", "public", true)
+	optOut := mkAlbum(t, db, uid, "quiet", "public", false)
+
+	putInAlbum(t, db, mkImage(t, db, "inpriv", &uid, "public", "normal", nil), priv.ID)
+	putInAlbum(t, db, mkImage(t, db, "inpub", &uid, "public", "normal", nil), pub.ID)
+	putInAlbum(t, db, mkImage(t, db, "optout", &uid, "public", "normal", nil), optOut.ID)
+	mkImage(t, db, "loose", &uid, "public", "normal", nil)
+
+	assertPlazaKeys := func(t *testing.T, rows []Row) {
+		t.Helper()
+		got := keysOf(rows)
+		if got["inpriv"] {
+			t.Error("私密相册内的 public 图泄漏到了公开流")
+		}
+		if !got["inpub"] {
+			t.Error("公开相册 + list_in_plaza 的图应出现")
+		}
+		if got["optout"] {
+			t.Error("list_in_plaza=false 的图不应出现")
+		}
+		if !got["loose"] {
+			t.Error("未分类 public 图应出现")
+		}
+	}
+
+	rows, _, err := svc.PlazaFeed("new", "", 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertPlazaKeys(t, rows)
+
+	urows, _, err := svc.UserImages(uid, "new", "", 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertPlazaKeys(t, urows)
+}
+
 // TestPlazaFeed_ExpiryOrParenthesization 锁死资格过滤中 (expires_at IS NULL OR expires_at > now)
 // 的括号：一张 private 但 expires_at 在未来、属主为公开 active 用户的图——若 OR 未加括号，
 // SQL 优先级会让「expires_at > now AND user_id NOT NULL AND public_profile AND active」独立成
@@ -301,4 +377,45 @@ func TestPlazaFeed_ExpiryOrParenthesization(t *testing.T) {
 	if len(rows) != 1 || rows[0].Key != "pub" {
 		t.Fatalf("private+未来过期图泄漏！应只含 pub, got %+v", rows)
 	}
+}
+
+// TestPlazaFeed_PasswordExcluded 公开但设了访问口令的图不得进广场/公开主页
+//（/t 会 401，卡片会烂；口令图不是可公开陈列）。
+func TestPlazaFeed_PasswordExcluded(t *testing.T) {
+	db := model.TestDB(t)
+	svc := New(db)
+	owner := mkUser(t, db, "owner", true, "active")
+	uid := owner.ID
+
+	plain := mkImage(t, db, "plain", &uid, "public", "normal", nil)
+	locked := mkImage(t, db, "locked", &uid, "public", "normal", nil)
+	if err := db.Model(&locked).Update("access_password_hash", "argon2id$dummy").Error; err != nil {
+		t.Fatal(err)
+	}
+
+	assertKeys := func(t *testing.T, rows []Row) {
+		t.Helper()
+		got := keysOf(rows)
+		if got["locked"] {
+			t.Error("口令图泄漏到了公开流")
+		}
+		if !got["plain"] {
+			t.Error("无口令 public 图应出现")
+		}
+		if got["plain"] && locked.Key == plain.Key {
+			t.Fatal("夹具 key 冲突")
+		}
+	}
+
+	rows, _, err := svc.PlazaFeed("new", "", 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertKeys(t, rows)
+
+	urows, _, err := svc.UserImages(uid, "new", "", 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertKeys(t, urows)
 }

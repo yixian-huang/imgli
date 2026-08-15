@@ -13,6 +13,7 @@ import (
 
 	"github.com/yixian-huang/imgli/internal/config"
 	"github.com/yixian-huang/imgli/internal/model"
+	"github.com/yixian-huang/imgli/internal/servecache"
 	"github.com/yixian-huang/imgli/internal/service/stats"
 	"github.com/yixian-huang/imgli/internal/service/storagesvc"
 )
@@ -20,6 +21,7 @@ import (
 // thumbFixture 最小 /t 双探测环境:公开图 + 可写本地存储根 + 挂载路由。
 type thumbFixture struct {
 	mux     *chi.Mux
+	sh      *ServeHandlers
 	dataDir string
 	hash    string
 	name    string
@@ -67,7 +69,7 @@ func newThumbFixture(t *testing.T) *thumbFixture {
 	}}
 	mux := chi.NewRouter()
 	mux.Get("/t/{name}", sh.Thumbnail)
-	return &thumbFixture{mux: mux, dataDir: dataDir, hash: hash, name: img.Key + ".png"}
+	return &thumbFixture{mux: mux, sh: sh, dataDir: dataDir, hash: hash, name: img.Key + ".png"}
 }
 
 func (f *thumbFixture) thumbPath(key string) string {
@@ -143,5 +145,32 @@ func TestThumbDualProbeWebPThenJPEGThen404(t *testing.T) {
 	rec = fx.getT()
 	if rec.Code != 404 {
 		t.Fatalf("none: status=%d want 404 body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestServeThumbHitsDiskCache(t *testing.T) {
+	fx := newThumbFixture(t)
+	cache, err := servecache.New(filepath.Join(t.TempDir(), "c"), 1<<20, 64<<10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fx.sh.D.Cache = cache
+
+	webpKey := storagesvc.ThumbKeyWebP(model.SurfacePublic, fx.hash)
+	body := []byte("RIFF....WEBPfake")
+	fx.writeThumb(t, webpKey, body)
+	rec := fx.getT()
+	if rec.Code != 200 {
+		t.Fatalf("first: status=%d", rec.Code)
+	}
+	if err := os.Remove(fx.thumbPath(webpKey)); err != nil {
+		t.Fatal(err)
+	}
+	rec = fx.getT()
+	if rec.Code != 200 {
+		t.Fatalf("origin 已删仍应命中缓存, got %d", rec.Code)
+	}
+	if rec.Body.String() != string(body) {
+		t.Errorf("cached body=%q", rec.Body.String())
 	}
 }

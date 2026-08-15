@@ -35,6 +35,39 @@ func TestSaveVisibilityFallback(t *testing.T) {
 	}
 }
 
+func TestSavePrivateAlbumForcesPrivate(t *testing.T) {
+	svc, u, _ := setup(t)
+	priv := model.Album{UserID: u.ID, Name: "secret", Visibility: "private"}
+	if err := svc.db.Create(&priv).Error; err != nil {
+		t.Fatal(err)
+	}
+	pub := model.Album{UserID: u.ID, Name: "open", Visibility: "public"}
+	if err := svc.db.Create(&pub).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	forced, err := svc.Save(context.Background(), pngFile(t, t.TempDir(), 40, 30), "p.png", u,
+		Opts{Visibility: "public", AlbumID: &priv.ID}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if forced.Image.Visibility != "private" {
+		t.Fatalf("私密相册内的图应为 private, got %q", forced.Image.Visibility)
+	}
+	if forced.File.Surface != model.SurfacePrivate {
+		t.Fatalf("私密相册图 surface 应为 private, got %q", forced.File.Surface)
+	}
+
+	kept, err := svc.Save(context.Background(), pngFile(t, t.TempDir(), 41, 30), "q.png", u,
+		Opts{Visibility: "public", AlbumID: &pub.ID}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if kept.Image.Visibility != "public" {
+		t.Fatalf("公开相册应保留显式 public, got %q", kept.Image.Visibility)
+	}
+}
+
 func TestSaveAlbumTriState(t *testing.T) {
 	svc, u, _ := setup(t)
 	alb := model.Album{UserID: u.ID, Name: "mine", Visibility: "private"}
@@ -158,7 +191,7 @@ func TestSaveGuestIgnoresOpts(t *testing.T) {
 
 func TestSaveInstantAlbum(t *testing.T) {
 	svc, u, _ := setup(t)
-	alb := model.Album{UserID: u.ID, Name: "inst", Visibility: "private"}
+	alb := model.Album{UserID: u.ID, Name: "inst", Visibility: "public"}
 	if err := svc.db.Create(&alb).Error; err != nil {
 		t.Fatal(err)
 	}

@@ -326,7 +326,7 @@ export default {
   publicStatsSince: 'Uptime start date (optional)',
   publicStatsSinceHint: 'YYYY-MM-DD. Empty = derive from earliest image (or earliest user). Prefer your public launch date.',
   publicStatsShowUptime: 'Show days online',
-  publicStatsShowImages: 'Show image count (excludes trash)',
+  publicStatsShowImages: 'Show public image count (excludes trash, private, and password-gated)',
   publicStatsShowUsers: 'Show registered user count',
   publicStatsShowBytes: 'Show stored object size',
   helpUrl: 'Help / docs URL',

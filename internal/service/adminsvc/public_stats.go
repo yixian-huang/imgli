@@ -15,12 +15,12 @@ import (
 // PublicStatsConfig 公开实例统计（settings "public_stats" JSON）。
 // 默认关闭：自托管零配置与现在一致；运营站可在 Admin 打开。
 type PublicStatsConfig struct {
-	Enabled         bool   `json:"enabled"`
-	Since           string `json:"since"` // YYYY-MM-DD；空=自动取最早 live 图或用户
-	ShowUptimeDays  bool   `json:"show_uptime_days"`
-	ShowLiveImages  bool   `json:"show_live_images"`
-	ShowUsers       bool   `json:"show_users"`
-	ShowUsedBytes   bool   `json:"show_used_bytes"`
+	Enabled        bool   `json:"enabled"`
+	Since          string `json:"since"` // YYYY-MM-DD；空=自动取最早 live 图或用户
+	ShowUptimeDays bool   `json:"show_uptime_days"`
+	ShowLiveImages bool   `json:"show_live_images"`
+	ShowUsers      bool   `json:"show_users"`
+	ShowUsedBytes  bool   `json:"show_used_bytes"`
 }
 
 // DefaultPublicStats 出厂默认：关闭；打开后默认展示运行天数 + 图片数。
@@ -121,8 +121,12 @@ func computePublicStats(db *gorm.DB, cfg PublicStatsConfig, now time.Time) (Publ
 
 	if cfg.ShowLiveImages {
 		var n int64
-		// GORM soft-delete 自动排除回收站；仅计 normal 状态
-		if err := db.Model(&model.Image{}).Where("status = ?", "normal").Count(&n).Error; err != nil {
+		// 只计可公开陈列的 live 图：public + normal + 未过期 + 无口令（软删自动排除回收站）。
+		if err := db.Model(&model.Image{}).
+			Where("status = ? AND visibility = ?", "normal", "public").
+			Where("access_password_hash = ?", "").
+			Where("expires_at IS NULL OR expires_at > ?", now).
+			Count(&n).Error; err != nil {
 			return PublicStatsSnapshot{}, err
 		}
 		out.LiveImageCount = &n

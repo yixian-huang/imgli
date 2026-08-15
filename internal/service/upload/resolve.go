@@ -3,8 +3,25 @@ package upload
 import (
 	"fmt"
 
+	"gorm.io/gorm"
+
 	"github.com/yixian-huang/imgli/internal/model"
 )
+
+// applyAlbumVisibility 私密相册覆盖调用方可见性为 private；公开相册/无相册不改。
+func applyAlbumVisibility(db *gorm.DB, albumID *uint64, vis string) string {
+	if albumID == nil {
+		return vis
+	}
+	var alb model.Album
+	if err := db.Select("visibility").First(&alb, *albumID).Error; err != nil {
+		return vis
+	}
+	if alb.Visibility == "private" {
+		return "private"
+	}
+	return vis
+}
 
 // resolveAlbum 解析相册三态。游客(u==nil)恒 nil。
 func (s *Service) resolveAlbum(u *model.User, explicit *uint64) (*uint64, error) {

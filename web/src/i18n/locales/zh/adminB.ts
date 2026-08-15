@@ -325,7 +325,7 @@ export default {
   publicStatsSince: '运行起点日期（可选）',
   publicStatsSinceHint: '格式 YYYY-MM-DD。留空则按最早一张图（或最早用户）推算；建议填公开上线日。',
   publicStatsShowUptime: '显示稳定运行天数',
-  publicStatsShowImages: '显示图片数量（不含回收站）',
+  publicStatsShowImages: '显示公开图片数量（不含回收站、私密与口令图）',
   publicStatsShowUsers: '显示注册用户数',
   publicStatsShowBytes: '显示已用存储（字节合计）',
   helpUrl: '帮助 / 文档 URL',

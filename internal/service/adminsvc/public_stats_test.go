@@ -89,6 +89,38 @@ func TestPublicStatsSnapshotLiveImagesAndSince(t *testing.T) {
 	}
 }
 
+func TestPublicStatsExcludesPrivateAndPassword(t *testing.T) {
+	InvalidatePublicStatsCache()
+	db := model.TestDB(t)
+	now := time.Date(2026, 8, 15, 12, 0, 0, 0, time.UTC)
+	f := &model.File{Hash: "pubstatpriv", StoragePolicyID: 1, Path: "public/p.png", Size: 10, RefCount: 1}
+	if err := db.Create(f).Error; err != nil {
+		t.Fatal(err)
+	}
+	mk := func(key, vis, pw string) {
+		t.Helper()
+		img := model.Image{
+			Key: key, Name: key + ".png", Ext: "png", FileID: f.ID,
+			Visibility: vis, Status: "normal", AccessPasswordHash: pw,
+		}
+		if err := db.Create(&img).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	mk("PubOnly000001", "public", "")
+	mk("PrivOnly00001", "private", "")
+	mk("PwdOnly000001", "public", "argon2id$dummy")
+
+	cfg := PublicStatsConfig{Enabled: true, ShowLiveImages: true}
+	snap, err := PublicStatsSnapshotFor(db, cfg, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snap.LiveImageCount == nil || *snap.LiveImageCount != 1 {
+		t.Fatalf("公开统计应只计无口令 public 图, got %v", snap.LiveImageCount)
+	}
+}
+
 func TestPublicStatsCache(t *testing.T) {
 	InvalidatePublicStatsCache()
 	db := model.TestDB(t)

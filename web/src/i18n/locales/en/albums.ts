@@ -82,6 +82,7 @@ export default {
   descriptionSaved: 'Description saved',
   setCover: 'Set as cover',
   coverSaved: 'Cover saved',
+  coverMustBePublic: 'A public album cover must be a public image without a password',
   accessPassword: 'Access password',
   accessPasswordHint: 'Gates the album visitor page only; does not change direct image URLs',
   accessPasswordSet: 'Password set',

@@ -21,6 +21,7 @@ import (
 	"github.com/yixian-huang/imgli/internal/imaging"
 	"github.com/yixian-huang/imgli/internal/mail"
 	"github.com/yixian-huang/imgli/internal/model"
+	"github.com/yixian-huang/imgli/internal/servecache"
 	"github.com/yixian-huang/imgli/internal/service/adminsvc"
 	"github.com/yixian-huang/imgli/internal/service/albumsvc"
 	"github.com/yixian-huang/imgli/internal/service/apitoken"
@@ -160,7 +161,7 @@ func (s *Server) mountAPI() {
 	imgH := &handler.ImageHandlers{D: handler.ImageDeps{Img: imgSvc, Res: storageRes, Stats: s.stats}}
 	trashH := &handler.TrashHandlers{D: handler.TrashDeps{Img: imgSvc, Res: storageRes}}
 	s.imgSvc = imgSvc // Run 中的回收站清理 goroutine 用
-	albH := &handler.AlbumHandlers{D: handler.AlbumDeps{Alb: albumsvc.New(s.opts.DB)}}
+	albH := &handler.AlbumHandlers{D: handler.AlbumDeps{Alb: albumsvc.New(s.opts.DB).WithImages(imgSvc)}}
 
 	// 管理端（Task 1+）：与广场/鉴权共用 settings，保证开关即时失效缓存
 	// UseDataDir：local 策略「测试连接」与 storagesvc 同一路径解析（相对 root → data_dir）
@@ -327,10 +328,19 @@ func (s *Server) mountAPI() {
 func (s *Server) mountServe() {
 	own := baseHost(s.opts.Cfg.BaseURL)
 	gate := servesvc.New(s.opts.DB, s.stats, own)
+	var cache *servecache.Cache
+	if !s.opts.Cfg.ServeCacheDisabled {
+		c, err := servecache.New(filepath.Join(s.opts.Cfg.DataDir, ".serve-cache"), s.opts.Cfg.ServeCacheMaxBytes, 0)
+		if err != nil {
+			slog.Warn("serve cache disabled", "err", err)
+		} else {
+			cache = c
+		}
+	}
 	sh := &handler.ServeHandlers{D: handler.ServeDeps{
 		DB: s.opts.DB, Res: s.storageRes,
 		Stats: s.stats, OwnHost: own,
-		Proc: s.imgProc, Gate: gate,
+		Proc: s.imgProc, Gate: gate, Cache: cache,
 	}}
 	s.mux.Group(func(g chi.Router) {
 		g.Use(handler.Auth(s.authRes))
@@ -384,6 +394,11 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 	if s.imgSvc != nil {
 		go func() {
+			if n, err := s.imgSvc.RehomeMismatchedSurfaces(); err != nil {
+				slog.Warn("rehome mismatched surfaces", "err", err)
+			} else if n > 0 {
+				slog.Info("rehomed mismatched surfaces", "n", n)
+			}
 			s.imgSvc.PurgeExpiredTrash(ctx)
 			s.imgSvc.PurgeExpiredImages(ctx)
 			s.imgSvc.SoftDeleteByGroupRetention(ctx)

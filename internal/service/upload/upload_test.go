@@ -124,7 +124,7 @@ func TestSaveInstantDedup(t *testing.T) {
 
 func TestSaveInstantDifferentOptsCreatesNewImage(t *testing.T) {
 	svc, u, _ := setup(t)
-	alb := model.Album{UserID: u.ID, Name: "alb", Visibility: "private"}
+	alb := model.Album{UserID: u.ID, Name: "alb", Visibility: "public"}
 	if err := svc.db.Create(&alb).Error; err != nil {
 		t.Fatal(err)
 	}

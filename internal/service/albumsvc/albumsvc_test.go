@@ -1,10 +1,15 @@
 package albumsvc
 
 import (
+	"bytes"
+	"context"
 	"errors"
 	"testing"
 
+	"github.com/yixian-huang/imgli/internal/config"
 	"github.com/yixian-huang/imgli/internal/model"
+	"github.com/yixian-huang/imgli/internal/service/imagesvc"
+	"github.com/yixian-huang/imgli/internal/service/storagesvc"
 )
 
 func setup(t *testing.T) (*Service, uint64) {
@@ -19,6 +24,9 @@ func TestCreateAndListWithCountCover(t *testing.T) {
 	alb, err := s.Create(uid, "工作", "private")
 	if err != nil {
 		t.Fatal(err)
+	}
+	if alb.ListInPlaza {
+		t.Error("新建私密相册 list_in_plaza 应为 false")
 	}
 	// 放两张图进相册（第二张更晚→cover）
 	f := &model.File{Hash: "h", StoragePolicyID: 1, Path: "p", Size: 1, RefCount: 1}
@@ -172,6 +180,49 @@ func TestUpdateClickToImmersive(t *testing.T) {
 	}
 }
 
+func TestUpdatePrivateCascadesImages(t *testing.T) {
+	s, uid := setup(t)
+	alb, err := s.Create(uid, "将私密", "public")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := &model.File{Hash: "hc", StoragePolicyID: 1, Path: "pc", Size: 1, RefCount: 1}
+	s.db.Create(f)
+	s.db.Create(&model.Image{Key: "cascpub000001", UserID: &uid, FileID: f.ID, AlbumID: &alb.ID, Name: "a", Ext: "png", Visibility: "public", Status: "normal"})
+	s.db.Create(&model.Image{Key: "cascpub000002", UserID: &uid, FileID: f.ID, AlbumID: &alb.ID, Name: "b", Ext: "png", Visibility: "public", Status: "normal"})
+
+	priv := "private"
+	got, err := s.Update(uid, alb.ID, UpdatePatch{Visibility: &priv})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Visibility != "private" {
+		t.Fatalf("相册应为 private, got %q", got.Visibility)
+	}
+	if got.ListInPlaza {
+		t.Error("设为私密后 list_in_plaza 应为 false")
+	}
+	var pubLeft int64
+	s.db.Model(&model.Image{}).Where("album_id = ? AND visibility = ?", alb.ID, "public").Count(&pubLeft)
+	if pubLeft != 0 {
+		t.Fatalf("私密相册内仍有 %d 张 public 图", pubLeft)
+	}
+}
+
+func TestSetImagesVisibilityRejectsPublicOnPrivateAlbum(t *testing.T) {
+	s, uid := setup(t)
+	alb, err := s.Create(uid, "密", "private")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := &model.File{Hash: "hr", StoragePolicyID: 1, Path: "pr", Size: 1, RefCount: 1}
+	s.db.Create(f)
+	s.db.Create(&model.Image{Key: "rejpub0000001", UserID: &uid, FileID: f.ID, AlbumID: &alb.ID, Name: "a", Ext: "png", Visibility: "private", Status: "normal"})
+	if _, err := s.SetImagesVisibility(uid, alb.ID, "public"); !errors.Is(err, ErrAlbumForcesPrivate) {
+		t.Fatalf("私密相册批量公开应 ErrAlbumForcesPrivate, got %v", err)
+	}
+}
+
 func TestGetPublicOwnerAndVisibility(t *testing.T) {
 	s, uid := setup(t)
 	// setup 创建的用户无 nickname/public_profile；补全
@@ -205,5 +256,134 @@ func TestGetPublicOwnerAndVisibility(t *testing.T) {
 	}
 	if len(items) != 1 || items[0].Key != "pubimg000001" {
 		t.Errorf("ListPublicImages 应只吐公开图: %+v", items)
+	}
+}
+
+func TestUpdateCoverRejectsPrivateOnPublicAlbum(t *testing.T) {
+	s, uid := setup(t)
+	alb, err := s.Create(uid, "公开册", "public")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := &model.File{Hash: "hcover1", StoragePolicyID: 1, Path: "p", Size: 1, RefCount: 1}
+	s.db.Create(f)
+	priv := &model.Image{Key: "coverpriv00001", UserID: &uid, FileID: f.ID, AlbumID: &alb.ID,
+		Name: "hid", Ext: "png", Visibility: "private", Status: "normal"}
+	s.db.Create(priv)
+	ck := priv.Key
+	if _, err := s.Update(uid, alb.ID, UpdatePatch{CoverKey: &ck}); !errors.Is(err, ErrInvalidCover) {
+		t.Fatalf("公开相册不得把私密图设为封面, got %v", err)
+	}
+}
+
+func TestListPublicAlbumsSkipsPrivateManualCover(t *testing.T) {
+	s, uid := setup(t)
+	if err := s.db.Model(&model.User{}).Where("id = ?", uid).Updates(map[string]any{
+		"public_profile": true, "status": "active",
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	alb, err := s.Create(uid, "游记", "public")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := &model.File{Hash: "hcover2", StoragePolicyID: 1, Path: "p2", Size: 1, RefCount: 1}
+	s.db.Create(f)
+	priv := &model.Image{Key: "plazapriv00001", UserID: &uid, FileID: f.ID, AlbumID: &alb.ID,
+		Name: "hid", Ext: "png", Visibility: "private", Status: "normal"}
+	pub := &model.Image{Key: "plazapub000001", UserID: &uid, FileID: f.ID, AlbumID: &alb.ID,
+		Name: "ok", Ext: "png", Visibility: "public", Status: "normal"}
+	s.db.Create(priv)
+	s.db.Create(pub)
+	if err := s.db.Model(alb).Update("cover_key", priv.Key).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	cards, _, err := s.ListPublicAlbums("", 24)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cards) != 1 {
+		t.Fatalf("应有 1 张公开相册卡, got %d", len(cards))
+	}
+	if cards[0].CoverKey == priv.Key {
+		t.Fatal("广场相册卡泄漏了私密封面 key")
+	}
+	if cards[0].CoverKey != pub.Key {
+		t.Fatalf("应回落到公开图封面, got %q", cards[0].CoverKey)
+	}
+
+	v, err := s.GetPublic(alb.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.CoverKey == priv.Key {
+		t.Fatal("访客相册页泄漏了私密封面 key")
+	}
+	if v.CoverKey != pub.Key {
+		t.Fatalf("访客封面应回落公开图, got %q", v.CoverKey)
+	}
+}
+
+// TestSetImagesVisibilityRehomesSurface 批量改私密须走 imagesvc 重挂，不能只改 visibility 列。
+func TestSetImagesVisibilityRehomesSurface(t *testing.T) {
+	db := model.TestDB(t)
+	cfg := &config.Config{DataDir: t.TempDir(), BaseURL: "https://img.li"}
+	res := storagesvc.New(cfg, db)
+	s := New(db).WithImages(imagesvc.New(db, res, nil))
+
+	u := &model.User{Username: "a", Email: "a@img.li", GroupID: 1}
+	if err := db.Create(u).Error; err != nil {
+		t.Fatal(err)
+	}
+	alb, err := s.Create(u.ID, "将私密", "public")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var policy model.StoragePolicy
+	if err := db.First(&policy, "driver = ?", "local").Error; err != nil {
+		t.Fatal(err)
+	}
+	d, err := res.Driver(&policy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := &model.File{Hash: "bulkhash1", Surface: model.SurfacePublic, StoragePolicyID: policy.ID,
+		Path: "public/2026/07/bulk.png", Size: 5, MIME: "image/png", Width: 1, Height: 1, RefCount: 1}
+	if err := db.Create(f).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := d.Put(context.Background(), f.Path, bytes.NewReader([]byte("bytes"))); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.Put(context.Background(), storagesvc.ThumbKey(model.SurfacePublic, f.Hash), bytes.NewReader([]byte("thumb"))); err != nil {
+		t.Fatal(err)
+	}
+	img := &model.Image{Key: "bulkrehome0001", UserID: &u.ID, FileID: f.ID, AlbumID: &alb.ID,
+		Name: "a", Ext: "png", Visibility: "public", Status: "normal"}
+	if err := db.Create(img).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	n, err := s.SetImagesVisibility(u.ID, alb.ID, "private")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("应更新 1 张, got %d", n)
+	}
+	var got model.Image
+	if err := db.First(&got, img.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if got.Visibility != "private" {
+		t.Fatalf("可见性应为 private, got %q", got.Visibility)
+	}
+	var nf model.File
+	if err := db.First(&nf, got.FileID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if nf.Surface != model.SurfacePrivate {
+		t.Fatalf("批量改私密应重挂 surface, got %q", nf.Surface)
 	}
 }

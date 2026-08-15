@@ -16,6 +16,7 @@ import (
 
 	"github.com/yixian-huang/imgli/internal/imaging"
 	"github.com/yixian-huang/imgli/internal/model"
+	"github.com/yixian-huang/imgli/internal/servecache"
 	"github.com/yixian-huang/imgli/internal/service/servesvc"
 	"github.com/yixian-huang/imgli/internal/service/stats"
 	"github.com/yixian-huang/imgli/internal/service/storagesvc"
@@ -32,10 +33,11 @@ var errThumbGen = errors.New("serve: width thumb generate failed")
 type ServeDeps struct {
 	DB      *gorm.DB
 	Res     *storagesvc.Resolver
-	Stats   *stats.Service // D-①:hotlink 快照+访问计数;nil=跳过(轻量测试兼容)
-	OwnHost string         // BaseURL 的 host(去端口),hotlink 恒放行自站
+	Stats   *stats.Service    // D-①:hotlink 快照+访问计数;nil=跳过(轻量测试兼容)
+	OwnHost string            // BaseURL 的 host(去端口),hotlink 恒放行自站
 	Proc    imaging.Processor // 可选；nil 时按需 imaging.New()（测试可省略）
 	Gate    *servesvc.Service // 可选；nil 时按 DB/Stats/OwnHost 惰性构造（测试兼容）
+	Cache   *servecache.Cache // 可选；公开流式 200 的本地代理缓存
 }
 
 type ServeHandlers struct {
@@ -318,6 +320,33 @@ func (h *ServeHandlers) streamWidthThumb(w http.ResponseWriter, r *http.Request,
 		Fail(w, http.StatusInternalServerError, CodeInternal, "存储不可用")
 		return 0, false
 	}
+	etag := `"` + file.Hash + "-w" + strconv.Itoa(width) + "-t" + storagesvc.ThumbGen + `"`
+	if inm := r.Header.Get("If-None-Match"); inm != "" && inm == etag {
+		w.Header().Set("ETag", etag)
+		w.WriteHeader(http.StatusNotModified)
+		return 0, true
+	}
+	ckey := serveCacheKey(file, true, width)
+	if public {
+		if cached, ctype, ok := h.openServeCache(ckey, "image/jpeg"); ok {
+			defer cached.Close()
+			meter := int64(0)
+			if n, err := cached.Seek(0, io.SeekEnd); err == nil && n > 0 {
+				meter = n
+				_, _ = cached.Seek(0, io.SeekStart)
+			}
+			w.Header().Set("Content-Type", ctype)
+			w.Header().Set("X-Content-Type-Options", "nosniff")
+			w.Header().Set("ETag", etag)
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+			sc := &statusCapture{ResponseWriter: w}
+			http.ServeContent(sc, r, "", file.CreatedAt, cached)
+			if !sc.ok() {
+				return 0, false
+			}
+			return meter, true
+		}
+	}
 	key := storagesvc.WidthThumbKey(file.Surface, file.Hash, width)
 	rc, err := d.Open(r.Context(), key)
 	if errors.Is(err, storage.ErrNotFound) {
@@ -374,6 +403,26 @@ func (h *ServeHandlers) streamWidthThumb(w http.ResponseWriter, r *http.Request,
 		Fail(w, http.StatusInternalServerError, CodeInternal, "读取失败")
 		return 0, false
 	}
+	if public && h.D.Cache != nil {
+		var n int64
+		var ferr error
+		rc, _, n, ferr = h.fillServeCache(ckey, rc, "image/jpeg")
+		if ferr != nil {
+			Fail(w, http.StatusInternalServerError, CodeInternal, "读取失败")
+			return 0, false
+		}
+		defer rc.Close()
+		w.Header().Set("Content-Type", "image/jpeg")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("ETag", etag)
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		sc := &statusCapture{ResponseWriter: w}
+		http.ServeContent(sc, r, "", file.CreatedAt, rc)
+		if !sc.ok() {
+			return 0, false
+		}
+		return n, true
+	}
 	defer rc.Close()
 	meter := int64(0)
 	if n, err := rc.Seek(0, io.SeekEnd); err == nil && n > 0 {
@@ -381,12 +430,6 @@ func (h *ServeHandlers) streamWidthThumb(w http.ResponseWriter, r *http.Request,
 		_, _ = rc.Seek(0, io.SeekStart)
 	} else {
 		_, _ = rc.Seek(0, io.SeekStart)
-	}
-	etag := `"` + file.Hash + "-w" + strconv.Itoa(width) + "-t" + storagesvc.ThumbGen + `"`
-	if inm := r.Header.Get("If-None-Match"); inm != "" && inm == etag {
-		w.Header().Set("ETag", etag)
-		w.WriteHeader(http.StatusNotModified)
-		return 0, true
 	}
 	w.Header().Set("Content-Type", "image/jpeg")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -434,33 +477,127 @@ func openThumb(ctx context.Context, d storage.Driver, surface, hash string) (io.
 	return nil, "", last
 }
 
+type byteRSC struct{ *bytes.Reader }
+
+func (byteRSC) Close() error { return nil }
+
+func sniffImageCType(b []byte, fallback string) string {
+	if len(b) >= 12 && string(b[:4]) == "RIFF" && string(b[8:12]) == "WEBP" {
+		return "image/webp"
+	}
+	if len(b) >= 3 && b[0] == 0xff && b[1] == 0xd8 && b[2] == 0xff {
+		return "image/jpeg"
+	}
+	if len(b) >= 8 && string(b[:8]) == "\x89PNG\r\n\x1a\n" {
+		return "image/png"
+	}
+	if len(b) >= 6 && (string(b[:6]) == "GIF87a" || string(b[:6]) == "GIF89a") {
+		return "image/gif"
+	}
+	return fallback
+}
+
+func serveCacheKey(file *model.File, thumb bool, width int) string {
+	if width > 0 {
+		return file.Hash + "-w" + strconv.Itoa(width) + "-t" + storagesvc.ThumbGen
+	}
+	if thumb {
+		return file.Hash + "-t" + storagesvc.ThumbGen
+	}
+	return file.Hash
+}
+
+func (h *ServeHandlers) openServeCache(key, fallback string) (io.ReadSeekCloser, string, bool) {
+	if h.D.Cache == nil {
+		return nil, "", false
+	}
+	f, ok := h.D.Cache.Get(key)
+	if !ok {
+		return nil, "", false
+	}
+	data, err := io.ReadAll(f)
+	_ = f.Close()
+	if err != nil || len(data) == 0 {
+		return nil, "", false
+	}
+	return byteRSC{bytes.NewReader(data)}, sniffImageCType(data, fallback), true
+}
+
+func (h *ServeHandlers) fillServeCache(key string, rc io.ReadSeekCloser, ctype string) (io.ReadSeekCloser, string, int64, error) {
+	data, err := io.ReadAll(rc)
+	_ = rc.Close()
+	if err != nil {
+		return nil, ctype, 0, err
+	}
+	if h.D.Cache != nil && int64(len(data)) <= h.D.Cache.MaxFileBytes() {
+		_ = h.D.Cache.Put(key, data)
+	}
+	if ctype == "" || strings.HasPrefix(ctype, "image/") {
+		ctype = sniffImageCType(data, ctype)
+	}
+	return byteRSC{bytes.NewReader(data)}, ctype, int64(len(data)), nil
+}
+
 // streamFile 打开 file（thumb 为 true 则打开该文件哈希对应的缩略图键）并经
 // ServeContent 回源。public 为 false（私密图）时禁止共享缓存，避免经 CDN
 // 泄露给非所有者。成功返回 (meterBytes, true)；失败 (0, false)。
 // meterBytes：原图用 file.Size；缩略图用可读长度（Seek）；304 计 0。
 // file/policy 须已由调用方加载（Original/Thumbnail 各一次）。
 func (h *ServeHandlers) streamFile(w http.ResponseWriter, r *http.Request, file *model.File, policy *model.StoragePolicy, thumb bool, public bool) (int64, bool) {
-	d, err := h.D.Res.Driver(policy)
-	if err != nil {
-		Fail(w, http.StatusInternalServerError, CodeInternal, "存储不可用")
-		return 0, false
+	etag := `"` + file.Hash + `"`
+	if thumb {
+		etag = `"` + file.Hash + "-t" + storagesvc.ThumbGen + `"`
+	}
+	if inm := r.Header.Get("If-None-Match"); inm != "" && inm == etag {
+		w.Header().Set("ETag", etag)
+		w.WriteHeader(http.StatusNotModified)
+		return 0, true // 304 无传输体，不计流量
+	}
+
+	ckey := serveCacheKey(file, thumb, 0)
+	fallback := file.MIME
+	if thumb {
+		fallback = "image/jpeg"
 	}
 	var rc io.ReadSeekCloser
 	var ctype string
-	if thumb {
-		// vips 构建产 .webp,纯 Go 构建产 .jpg;混合存量双探测,构建切换免迁移(D-②)
-		rc, ctype, err = openThumb(r.Context(), d, file.Surface, file.Hash)
-	} else {
-		ctype = file.MIME
-		rc, err = d.Open(r.Context(), file.Path)
+	if public {
+		if cached, ct, ok := h.openServeCache(ckey, fallback); ok {
+			rc, ctype = cached, ct
+		}
 	}
-	if err != nil {
-		if errors.Is(err, storage.ErrNotFound) {
-			h.placeholder(w, r, http.StatusNotFound, "NOT FOUND")
+	if rc == nil {
+		d, err := h.D.Res.Driver(policy)
+		if err != nil {
+			Fail(w, http.StatusInternalServerError, CodeInternal, "存储不可用")
 			return 0, false
 		}
-		Fail(w, http.StatusInternalServerError, CodeInternal, "读取失败")
-		return 0, false
+		if thumb {
+			// vips 构建产 .webp,纯 Go 构建产 .jpg;混合存量双探测,构建切换免迁移(D-②)
+			rc, ctype, err = openThumb(r.Context(), d, file.Surface, file.Hash)
+		} else {
+			ctype = file.MIME
+			rc, err = d.Open(r.Context(), file.Path)
+		}
+		if err != nil {
+			if errors.Is(err, storage.ErrNotFound) {
+				h.placeholder(w, r, http.StatusNotFound, "NOT FOUND")
+				return 0, false
+			}
+			Fail(w, http.StatusInternalServerError, CodeInternal, "读取失败")
+			return 0, false
+		}
+		if public && h.D.Cache != nil && (thumb || file.Size <= h.D.Cache.MaxFileBytes()) {
+			var n int64
+			rc, ctype, n, err = h.fillServeCache(ckey, rc, ctype)
+			if err != nil {
+				Fail(w, http.StatusInternalServerError, CodeInternal, "读取失败")
+				return 0, false
+			}
+			if thumb && n == 0 {
+				// keep going; meter 下面按 Seek 再算
+			}
+		}
 	}
 	defer rc.Close()
 	meter := file.Size
@@ -472,16 +609,6 @@ func (h *ServeHandlers) streamFile(w http.ResponseWriter, r *http.Request, file 
 			meter = 0 // 无可靠 size 不计（裁决：有 size 才计）
 			_, _ = rc.Seek(0, io.SeekStart)
 		}
-	}
-	// ETag 用内容哈希(缩略图附世代),处理/键布局变更后可 If-None-Match 失效(C2)。
-	etag := `"` + file.Hash + `"`
-	if thumb {
-		etag = `"` + file.Hash + "-t" + storagesvc.ThumbGen + `"`
-	}
-	if inm := r.Header.Get("If-None-Match"); inm != "" && inm == etag {
-		w.Header().Set("ETag", etag)
-		w.WriteHeader(http.StatusNotModified)
-		return 0, true // 304 无传输体，不计流量
 	}
 	w.Header().Set("Content-Type", ctype)
 	w.Header().Set("X-Content-Type-Options", "nosniff")

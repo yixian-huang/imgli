@@ -217,7 +217,8 @@ func (h *ImageHandlers) Update(w http.ResponseWriter, r *http.Request) {
 		Fail(w, http.StatusBadRequest, CodeMaxViewsOverGroup, "访问次数超出用户组限制")
 	case errors.Is(err, imagesvc.ErrInvalidVisibility), errors.Is(err, imagesvc.ErrInvalidName),
 		errors.Is(err, imagesvc.ErrInvalidSlug), errors.Is(err, imagesvc.ErrSlugTaken),
-		errors.Is(err, imagesvc.ErrInvalidMaxViews), errors.Is(err, imagesvc.ErrInvalidAccessPassword):
+		errors.Is(err, imagesvc.ErrInvalidMaxViews), errors.Is(err, imagesvc.ErrInvalidAccessPassword),
+		errors.Is(err, imagesvc.ErrAlbumForcesPrivate):
 		Fail(w, http.StatusBadRequest, CodeInvalidRequest, err.Error())
 	default:
 		Fail(w, http.StatusInternalServerError, CodeInternal, "服务器内部错误")

@@ -154,11 +154,17 @@ export function UploadPage() {
     t,
   )
 
+  const selectedAlbum = albumId != null ? albums.data?.items.find((a) => a.id === albumId) : undefined
+  const albumForcesPrivate = selectedAlbum?.visibility === 'private'
+
   useEffect(() => {
     if (albumId !== null && albums.data && !albums.data.items.some((a) => a.id === albumId)) {
       setAlbumId(null)
     }
   }, [albums.data, albumId])
+  useEffect(() => {
+    if (albumForcesPrivate) setVisibility('private')
+  }, [albumForcesPrivate])
   useEffect(() => {
     if (policyId !== null && policies.data && !policies.data.some((po) => po.id === policyId)) {
       setPolicyId(null)
@@ -512,7 +518,12 @@ export function UploadPage() {
                   id="opt-album"
                   className="cursor-pointer rounded-sm border border-border bg-bg px-2.5 py-2 font-inherit text-sm-plus text-ink outline-none"
                   value={albumId ?? 'none'}
-                  onChange={(e) => setAlbumId(e.target.value === 'none' ? null : Number(e.target.value))}
+                  onChange={(e) => {
+                    const next = e.target.value === 'none' ? null : Number(e.target.value)
+                    setAlbumId(next)
+                    const alb = albums.data?.items.find((a) => a.id === next)
+                    if (alb?.visibility === 'private') setVisibility('private')
+                  }}
                 >
                   <option value="none">{t('upload.noAlbum')}</option>
                   {albums.data?.items.map((a) => (
@@ -530,7 +541,13 @@ export function UploadPage() {
                     { value: 'private', label: t('upload.private') },
                   ]}
                   value={visibility}
-                  onChange={setVisibility}
+                  onChange={(v) => {
+                    if (albumForcesPrivate) {
+                      setVisibility('private')
+                      return
+                    }
+                    setVisibility(v)
+                  }}
                 />
               </div>
               <div className="col-span-full flex flex-col gap-1.5">

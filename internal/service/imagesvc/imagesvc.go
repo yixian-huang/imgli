@@ -21,6 +21,7 @@ var (
 	ErrNotFound          = errors.New("imagesvc: 图片不存在")
 	ErrInvalidVisibility = errors.New("imagesvc: 可见性仅 public|private")
 	ErrAlbumNotFound     = errors.New("imagesvc: 相册不存在")
+	ErrAlbumForcesPrivate = errors.New("imagesvc: 私密相册内的图必须为 private")
 	ErrInvalidName       = errors.New("imagesvc: 名称需 1-255 字节")
 	ErrInvalidAction     = errors.New("imagesvc: 未知批量操作")
 	ErrInvalidSlug       = errors.New("imagesvc: slug 需 3-32 位小写字母数字与连字符")

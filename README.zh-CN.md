@@ -172,6 +172,8 @@ make build          # 需要 Go ≥ 1.26、Node ≥ 24
 | `IMGLI_DATABASE_DSN` | **Postgres 时必需** | SQLite 自动路径 | Postgres DSN；SQLite 请留空 |
 | `IMGLI_FETCH_ALLOW` | 可选 | *(空)* | URL 抓取上传额外放行的 host/CIDR |
 | `IMGLI_RATE_LIMIT_MULT` | 可选 | `1` | 限速倍率；生产保持 1 |
+| `IMGLI_SERVE_CACHE_DISABLED` | 可选 | `false` | 关闭公开 `/t` 与流式 `/i` 的本地代理缓存 |
+| `IMGLI_SERVE_CACHE_MAX_BYTES` | 可选 | `0`（512MiB） | `{data_dir}/.serve-cache` 上限 |
 
 ### 反代后无法注册/登录（「跨站请求被拒绝」）
 

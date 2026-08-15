@@ -232,6 +232,20 @@ it('游客入队项 opts 恒 public 且不归相册', async () => {
   })
 })
 
+it('默认相册为私密时，即使偏好公开也强制私密', async () => {
+  const session: User = {
+    ...BASE_USER,
+    preferences: {
+      ...EMPTY_PREFS,
+      default_visibility: 'public',
+      default_album_id: 7,
+    },
+  }
+  mockBackend(session)
+  renderPage(session)
+  expect(await screen.findByText(/私密/)).toBeInTheDocument()
+})
+
 it('偏好初始值：session preferences 驱动 summary 含私密', async () => {
   const session: User = {
     ...BASE_USER,

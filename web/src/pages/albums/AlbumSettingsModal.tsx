@@ -260,7 +260,10 @@ export function AlbumSettingsModal({
           <section>
             <div className="mb-1.5 text-[11.5px] text-muted">{t('albums.bulkVisHint')}</div>
             <div className="flex flex-wrap gap-2">
-              <Button disabled={setVisPending || !hasImages} onClick={() => onBulkVis('public')}>
+              <Button
+                disabled={setVisPending || !hasImages || album.visibility === 'private'}
+                onClick={() => onBulkVis('public')}
+              >
                 {t('albums.bulkPublic')}
               </Button>
               <Button disabled={setVisPending || !hasImages} onClick={() => onBulkVis('private')}>

@@ -44,6 +44,7 @@ export default {
   copyUrlTitle: '复制 URL',
   linkNameUrl: 'URL 链接',
   toggleVisibility: '切换可见性',
+  albumForcesPrivate: '私密相册内的图片不能设为公开',
   privateBadge: '私密',
 
   colName: '文件名',

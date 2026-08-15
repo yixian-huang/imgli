@@ -10,6 +10,24 @@ separate version in `go.mod` or `web/package.json`.
 
 ## [Unreleased]
 
+## [0.9.12] - 2026-08-15
+
+Theme: **Private album privacy + origin serve cache**.
+
+### Added
+
+- **Origin serve cache:** public `/t` and streamed `/i` responses are cached under `{data_dir}/.serve-cache` (default 512MiB) so repeat hotlinks do not re-fetch S3 every time. Disable with `serve_cache_disabled` / `IMGLI_SERVE_CACHE_DISABLED`.
+
+### Fixed
+
+- **Private albums leaking into plaza:** plaza and public profile feeds now require the parent album to be public (in addition to `list_in_plaza`). Uploading a public image into a private album no longer lists it on the square.
+- **Private album images stayed public on `/i`:** upload, move-in, and setting an album private now force image visibility to `private` (anonymous direct links 401). Existing leaked rows are repaired on migrate (schema v8). Bulk-set-public is rejected on private albums. PATCH / batch cannot flip an image back to public while it remains in a private album.
+- **Private visibility without object rehome:** album bulk-set-private and schema v8 previously only updated the visibility column, leaving objects on `public/`. Bulk updates now go through `imagesvc` (copy + rehome). Startup also repairs live rows whose `files.surface` still mismatches `images.visibility`.
+- **Password-gated images on plaza:** images with an access password are excluded from plaza and public profile feeds (`/t` would 401).
+- **Share page ignored parent album:** `/s` and share OG now 404 when the image sits in a private album, even if the row is still marked public.
+- **Public album covers leaked private keys:** plaza album cards and `/a` OG only use publicly displayable covers; setting a private or password-gated cover on a public album is rejected.
+- **Public instance stats counted private images:** homepage `live_image_count` now counts only unexpired public images without an access password.
+
 ## [0.9.11] - 2026-08-12
 
 Theme: **Public homepage stats + album gallery click preference**.
@@ -500,7 +518,8 @@ Theme: **Workflow & Trust** — CLI/integrations, share landing, privacy
 - Bilingual UI (中文/English), PWA, dark mode, text watermark, admin audit logs.
 - Docker Compose quick start and GitHub Actions CI (Go matrix, web, e2e smoke).
 
-[Unreleased]: https://github.com/yixian-huang/imgli/compare/v0.9.11...HEAD
+[Unreleased]: https://github.com/yixian-huang/imgli/compare/v0.9.12...HEAD
+[0.9.12]: https://github.com/yixian-huang/imgli/compare/v0.9.11...v0.9.12
 [0.9.11]: https://github.com/yixian-huang/imgli/compare/v0.9.10...v0.9.11
 [0.9.10]: https://github.com/yixian-huang/imgli/compare/v0.9.9...v0.9.10
 [0.9.9]: https://github.com/yixian-huang/imgli/compare/v0.9.8...v0.9.9

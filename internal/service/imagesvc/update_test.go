@@ -33,6 +33,43 @@ func TestUpdateRejectsBadVisibility(t *testing.T) {
 	}
 }
 
+func TestUpdateRejectsPublicWhileInPrivateAlbum(t *testing.T) {
+	s, uid := setupSvc(t)
+	alb := &model.Album{UserID: uid, Name: "密", Visibility: "private"}
+	s.db.Create(alb)
+	var img model.Image
+	s.db.Where("user_id = ? AND visibility = ?", uid, "public").First(&img)
+	if _, err := s.Update(uid, img.Key, UpdatePatch{AlbumID: ptrI64(int64(alb.ID))}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Update(uid, img.Key, UpdatePatch{Visibility: ptrStr("public")}); !errors.Is(err, ErrAlbumForcesPrivate) {
+		t.Fatalf("私密相册内改 public 应 ErrAlbumForcesPrivate, got %v", err)
+	}
+	var got model.Image
+	s.db.Where("key = ?", img.Key).First(&got)
+	if got.Visibility != "private" {
+		t.Fatalf("拒绝后仍应为 private, got %q", got.Visibility)
+	}
+}
+
+func TestUpdateMoveToPrivateAlbumForcesPrivate(t *testing.T) {
+	s, uid := setupSvc(t)
+	alb := &model.Album{UserID: uid, Name: "密", Visibility: "private"}
+	s.db.Create(alb)
+	var img model.Image
+	s.db.Where("user_id = ? AND visibility = ?", uid, "public").First(&img)
+	if img.Key == "" {
+		t.Fatal("需要一张 public 夹具图")
+	}
+	row, err := s.Update(uid, img.Key, UpdatePatch{AlbumID: ptrI64(int64(alb.ID))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if row.Img.Visibility != "private" {
+		t.Fatalf("移入私密相册应为 private, got %q", row.Img.Visibility)
+	}
+}
+
 func TestUpdateMoveToOwnedAlbumAndClear(t *testing.T) {
 	s, uid := setupSvc(t)
 	alb := &model.Album{UserID: uid, Name: "工作", Visibility: "private"}

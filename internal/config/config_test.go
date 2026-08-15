@@ -81,6 +81,21 @@ func TestTrustProxyEnvOverridesYAML(t *testing.T) {
 	}
 }
 
+func TestServeCacheEnv(t *testing.T) {
+	t.Setenv("IMGLI_SERVE_CACHE_DISABLED", "true")
+	t.Setenv("IMGLI_SERVE_CACHE_MAX_BYTES", "1048576")
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.ServeCacheDisabled {
+		t.Error("IMGLI_SERVE_CACHE_DISABLED=true 应关闭缓存")
+	}
+	if cfg.ServeCacheMaxBytes != 1048576 {
+		t.Errorf("ServeCacheMaxBytes=%d", cfg.ServeCacheMaxBytes)
+	}
+}
+
 func TestFetchAllowYAMLEntriesTrimmed(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "imgli.yaml")

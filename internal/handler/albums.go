@@ -258,7 +258,7 @@ func (h *AlbumHandlers) Update(w http.ResponseWriter, r *http.Request) {
 	alb, err := h.D.Alb.Update(PrincipalFrom(r).User.ID, id, albumsvc.UpdatePatch{
 		Name: req.Name, Visibility: req.Visibility, DefaultView: req.DefaultView,
 		ClickToImmersive: req.ClickToImmersive,
-		Description: req.Description, CoverKey: req.CoverKey,
+		Description:      req.Description, CoverKey: req.CoverKey,
 		AccessPassword: req.AccessPassword, ListInPlaza: req.ListInPlaza,
 	})
 	switch {
@@ -366,7 +366,7 @@ func (h *AlbumHandlers) SetImagesVisibility(w http.ResponseWriter, r *http.Reque
 		OK(w, map[string]any{"updated": n, "visibility": req.Visibility})
 	case errors.Is(err, albumsvc.ErrNotFound):
 		Fail(w, http.StatusNotFound, CodeNotFound, "相册不存在")
-	case errors.Is(err, albumsvc.ErrInvalidVisibility):
+	case errors.Is(err, albumsvc.ErrInvalidVisibility), errors.Is(err, albumsvc.ErrAlbumForcesPrivate):
 		Fail(w, http.StatusBadRequest, CodeInvalidRequest, err.Error())
 	default:
 		Fail(w, http.StatusInternalServerError, CodeInternal, "服务器内部错误")

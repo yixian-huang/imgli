@@ -27,6 +27,10 @@ type Config struct {
 	// RateLimitMult 固定命名桶(auth/config/resend/forgot)每分钟限额的倍率，默认 1。
 	// 供 e2e 等高并发自动化场景整体放宽(IMGLI_RATE_LIMIT_MULT),生产保持 1 不受影响。
 	RateLimitMult float64 `yaml:"rate_limit_mult"`
+	// ServeCacheDisabled 关闭 /t、未 302 的 /i 本地代理缓存（默认开启）。
+	ServeCacheDisabled bool `yaml:"serve_cache_disabled"`
+	// ServeCacheMaxBytes 缓存目录上限；0=512MiB。
+	ServeCacheMaxBytes int64 `yaml:"serve_cache_max_bytes"`
 }
 
 // Load 解析配置。path 为空则只用默认值+环境变量；文件不存在视为错误。
@@ -84,6 +88,16 @@ func Load(path string) (*Config, error) {
 	cfg.FetchAllow = trimmed
 	if cfg.RateLimitMult <= 0 { // yaml 显式 0 或缺省未覆盖时兜底为 1
 		cfg.RateLimitMult = 1
+	}
+	if v := os.Getenv("IMGLI_SERVE_CACHE_DISABLED"); v != "" {
+		if b, err := strconv.ParseBool(v); err == nil {
+			cfg.ServeCacheDisabled = b
+		}
+	}
+	if v := os.Getenv("IMGLI_SERVE_CACHE_MAX_BYTES"); v != "" {
+		if n, err := strconv.ParseInt(v, 10, 64); err == nil && n >= 0 {
+			cfg.ServeCacheMaxBytes = n
+		}
 	}
 	return cfg, nil
 }

@@ -4,6 +4,7 @@ import { renderSVG } from 'uqr'
 import { useAlbums, useDeleteImage, useImageDetail, useImageStats, useQuota, useUpdateImage } from '../../api/hooks'
 import type { ImageItem } from '../../api/types'
 import { useT } from '../../i18n'
+import { albumForcesPrivate } from '../../lib/albumPrivacy'
 import { cn } from '../../lib/cn'
 import { copyText } from '../../lib/copy'
 import { formatBytes, formatDate } from '../../lib/format'
@@ -261,6 +262,7 @@ export function DetailModal({ items, focusKey, onClose, onNavigate }: Props) {
   const albumName = base.album_id
     ? (albums.data?.items.find((a) => a.id === base.album_id)?.name ?? `#${base.album_id}`)
     : t('images.uncategorized')
+  const visLockedPublic = albumForcesPrivate(albums.data?.items, base.album_id)
   const expiresAt = d?.expires_at !== undefined ? d.expires_at : base.expires_at
   const expiryDisplay = (() => {
     if (!expiresAt) return t('images.permanent')
@@ -519,13 +521,16 @@ export function DetailModal({ items, focusKey, onClose, onNavigate }: Props) {
                   <button
                     type="button"
                     className="max-w-full justify-self-start cursor-pointer rounded-[2px] border border-border bg-surface px-2 py-0.5 font-mono text-2xs font-semibold text-ink hover:bg-soft disabled:opacity-50"
-                    disabled={update.isPending}
-                    onClick={() =>
-                      update.mutate({
-                        key: base.key,
-                        body: { visibility: base.visibility === 'public' ? 'private' : 'public' },
-                      })
-                    }
+                    disabled={update.isPending || (visLockedPublic && base.visibility === 'private')}
+                    title={visLockedPublic && base.visibility === 'private' ? t('images.albumForcesPrivate') : undefined}
+                    onClick={() => {
+                      const next = base.visibility === 'public' ? 'private' : 'public'
+                      if (next === 'public' && visLockedPublic) {
+                        pushToast(t('images.albumForcesPrivate'))
+                        return
+                      }
+                      update.mutate({ key: base.key, body: { visibility: next } })
+                    }}
                   >
                     {visLabel} — {t('images.clickToToggle')}
                   </button>

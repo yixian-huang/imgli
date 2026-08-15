@@ -215,6 +215,75 @@ func TestUpdateVisibilitySharedOldFileKept(t *testing.T) {
 	}
 }
 
+// TestUpdateRehomesWhenAlreadyPrivate 可见性已是 private、但 File 仍在 public/（v8 只改列）
+// 时，再 PATCH private 必须重挂，不能当 no-op。
+func TestUpdateRehomesWhenAlreadyPrivate(t *testing.T) {
+	svc, res, policy, f := setupSurface(t)
+	u := &model.User{Username: "erin", Email: "e@img.li", GroupID: 1, Status: "active"}
+	if err := svc.db.Create(u).Error; err != nil {
+		t.Fatal(err)
+	}
+	img := &model.Image{Key: "k1surface010", UserID: &u.ID, FileID: f.ID, Name: "a", Ext: "png",
+		Visibility: model.SurfacePrivate, Status: "normal"}
+	if err := svc.db.Create(img).Error; err != nil {
+		t.Fatal(err)
+	}
+	priv := model.SurfacePrivate
+	row, err := svc.Update(u.ID, img.Key, UpdatePatch{Visibility: &priv})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if row.File.Surface != model.SurfacePrivate {
+		t.Fatalf("已 private 但 surface 不匹配时应重挂, file.surface=%q", row.File.Surface)
+	}
+	if row.File.ID == f.ID {
+		t.Fatal("应重挂到新私密 File, 不应仍指公开 File")
+	}
+	d, _ := res.Driver(policy)
+	if ok, _ := d.Exists(context.Background(), row.File.Path); !ok {
+		t.Error("新私密对象应存在")
+	}
+}
+
+// TestRehomeMismatchedSurfaces 存量扫描：private 图挂在 public File 上 → 重挂。
+func TestRehomeMismatchedSurfaces(t *testing.T) {
+	svc, res, policy, f := setupSurface(t)
+	u := &model.User{Username: "frank", Email: "f@img.li", GroupID: 1, Status: "active"}
+	if err := svc.db.Create(u).Error; err != nil {
+		t.Fatal(err)
+	}
+	img := &model.Image{Key: "k1surface011", UserID: &u.ID, FileID: f.ID, Name: "a", Ext: "png",
+		Visibility: model.SurfacePrivate, Status: "normal"}
+	if err := svc.db.Create(img).Error; err != nil {
+		t.Fatal(err)
+	}
+	n, err := svc.RehomeMismatchedSurfaces()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("应重挂 1 张, got %d", n)
+	}
+	var got model.Image
+	if err := svc.db.First(&got, img.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if got.FileID == f.ID {
+		t.Fatal("扫描重挂后 FileID 不应仍指公开 File")
+	}
+	var nf model.File
+	if err := svc.db.First(&nf, got.FileID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if nf.Surface != model.SurfacePrivate {
+		t.Fatalf("新 File surface=%q, want private", nf.Surface)
+	}
+	d, _ := res.Driver(policy)
+	if ok, _ := d.Exists(context.Background(), nf.Path); !ok {
+		t.Error("新私密对象应存在")
+	}
+}
+
 // TestUpdateVisibilityConcurrentRehomeNoDoubleRef 模拟并发已重挂:img 已被改指到私密 File,
 // 本次 Update(→private)应识别冲突、不重复调 ref、返回当前态。
 func TestUpdateVisibilityConcurrentRehomeNoDoubleRef(t *testing.T) {

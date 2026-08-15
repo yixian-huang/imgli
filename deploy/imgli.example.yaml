@@ -14,6 +14,10 @@ database:
 
 trust_proxy: true # 仅在可信反代之后打开;影响限速的客户端 IP 归因
 
+# 公开 /t 与未 302 的 /i 本地代理缓存（默认开，目录 <data_dir>/.serve-cache）
+# serve_cache_disabled: false
+# serve_cache_max_bytes: 0   # 0 = 512MiB
+
 # URL 抓取上传默认拒绝内网地址;确需放行的 host/CIDR 在此追加:
 # fetch_allow:
 #   - "10.0.0.0/8"

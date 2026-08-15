@@ -11,6 +11,7 @@ import (
 
 	"github.com/yixian-huang/imgli/internal/model"
 	"github.com/yixian-huang/imgli/internal/service/auth"
+	"github.com/yixian-huang/imgli/internal/service/imagesvc"
 )
 
 func hashAlbumPassword(pw string) (string, error) {
@@ -135,6 +136,25 @@ func (s *Service) SetImagesVisibility(userID, albumID uint64, visibility string)
 		}
 		return 0, err
 	}
+	if alb.Visibility == "private" && v == "public" {
+		return 0, ErrAlbumForcesPrivate
+	}
+	if s.img != nil {
+		var imgs []model.Image
+		if err := s.db.Where("album_id = ? AND user_id = ? AND deleted_at IS NULL", albumID, userID).
+			Find(&imgs).Error; err != nil {
+			return 0, err
+		}
+		var n int64
+		for i := range imgs {
+			vis := v
+			if _, err := s.img.Update(userID, imgs[i].Key, imagesvc.UpdatePatch{Visibility: &vis}); err != nil {
+				return n, err
+			}
+			n++
+		}
+		return n, nil
+	}
 	res := s.db.Model(&model.Image{}).
 		Where("album_id = ? AND user_id = ? AND deleted_at IS NULL", albumID, userID).
 		Update("visibility", v)
@@ -169,23 +189,14 @@ type publicAlbumScan struct {
 }
 
 func (s *Service) fillCover(card *PublicAlbumCard, coverKey string, userID uint64, albumID uint64) {
-	card.CoverKey = coverKey
-	card.CoverExt = "jpg"
-	if coverKey != "" {
-		var img model.Image
-		if err := s.db.Where("key = ?", coverKey).First(&img).Error; err == nil {
-			card.CoverExt = img.Ext
-			return
-		}
+	key, err := s.resolveCover(model.Album{ID: albumID, UserID: userID, CoverKey: coverKey}, true)
+	if err != nil || key == "" {
+		return
 	}
+	card.CoverKey = key
+	card.CoverExt = "jpg"
 	var img model.Image
-	err := s.db.Where("album_id = ? AND user_id = ? AND deleted_at IS NULL AND visibility = ? AND status = ?",
-		albumID, userID, "public", "normal").
-		Where("(expires_at IS NULL OR expires_at > ?)", timeNow()).
-		Where("(access_password_hash = '' OR access_password_hash IS NULL)").
-		Order("album_pos ASC, id DESC").First(&img).Error
-	if err == nil {
-		card.CoverKey = img.Key
+	if err := s.db.Where("key = ?", key).First(&img).Error; err == nil && img.Ext != "" {
 		card.CoverExt = img.Ext
 	}
 }

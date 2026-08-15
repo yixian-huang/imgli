@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
-import { defaultFilter, useDeleteImage, useImages, useUpdateImage, type ImagesFilter } from '../../api/hooks'
+import { defaultFilter, useAlbums, useDeleteImage, useImages, useUpdateImage, type ImagesFilter } from '../../api/hooks'
 import type { ImageItem } from '../../api/types'
 import { useT } from '../../i18n'
+import { albumForcesPrivate } from '../../lib/albumPrivacy'
 import { useDebounced } from '../../lib/useDebounced'
 import { useGlobal } from '../../store'
 import { Button } from '../../ui/Button'
@@ -78,6 +79,8 @@ export function ImagesPage() {
   }
   const effective = useMemo(() => ({ ...filter, q: debouncedQ }), [filter, debouncedQ])
   const view = useGlobal((s) => s.view)
+  const pushToast = useGlobal((s) => s.pushToast)
+  const albums = useAlbums()
   const images = useImages(effective)
   const update = useUpdateImage()
   const remove = useDeleteImage()
@@ -123,9 +126,15 @@ export function ImagesPage() {
   )
 
   const quickVis = useCallback(
-    (item: ImageItem) =>
-      update.mutate({ key: item.key, body: { visibility: item.visibility === 'public' ? 'private' : 'public' } }),
-    [update],
+    (item: ImageItem) => {
+      const next = item.visibility === 'public' ? 'private' : 'public'
+      if (next === 'public' && albumForcesPrivate(albums.data?.items, item.album_id)) {
+        pushToast(t('images.albumForcesPrivate'))
+        return
+      }
+      update.mutate({ key: item.key, body: { visibility: next } })
+    },
+    [albums.data?.items, pushToast, t, update],
   )
   const quickDel = useCallback(
     (key: string) =>

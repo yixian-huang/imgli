@@ -184,6 +184,8 @@ Precedence: defaults → YAML file (`imgli serve -config imgli.yaml`, see
 | `IMGLI_DATABASE_DSN` | **Required for Postgres** | auto SQLite path | Postgres DSN; leave empty for default SQLite under `data_dir` |
 | `IMGLI_FETCH_ALLOW` | Optional | *(empty)* | Extra hosts/CIDRs for URL-fetch upload (default denies private nets) |
 | `IMGLI_RATE_LIMIT_MULT` | Optional | `1` | Rate-limit multiplier; keep `1` in production |
+| `IMGLI_SERVE_CACHE_DISABLED` | Optional | `false` | Disable local proxy cache for public `/t` and streamed `/i` |
+| `IMGLI_SERVE_CACHE_MAX_BYTES` | Optional | `0` (512MiB) | Cap for `{data_dir}/.serve-cache` |
 
 ### Reverse proxy: login/register rejected as cross-site
 

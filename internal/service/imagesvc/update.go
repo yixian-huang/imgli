@@ -9,7 +9,6 @@ import (
 
 	"github.com/yixian-huang/imgli/internal/model"
 	"github.com/yixian-huang/imgli/internal/service/auth"
-	"github.com/yixian-huang/imgli/internal/service/storagesvc"
 )
 
 // UpdatePatch 是 Update 的可选字段集合；指针 nil 表示不改。
@@ -57,6 +56,31 @@ func (s *Service) Update(userID uint64, key string, p UpdatePatch) (*Row, error)
 		}
 	}
 	updates := map[string]any{}
+	// 移入私密相册：图必须变 private（含直链 /i），公开相册不改可见性。
+	if p.AlbumID != nil && *p.AlbumID > 0 {
+		var dest model.Album
+		err := s.db.Where("id = ? AND user_id = ?", *p.AlbumID, userID).First(&dest).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrAlbumNotFound
+		}
+		if err != nil {
+			return nil, err
+		}
+		if dest.Visibility == "private" {
+			priv := "private"
+			p.Visibility = &priv
+		}
+	}
+	// 已在私密相册内（且未移出）时禁止改回 public。
+	if p.Visibility != nil && *p.Visibility == "public" {
+		stay := p.AlbumID == nil && img.AlbumID != nil
+		if stay {
+			var cur model.Album
+			if err := s.db.Select("visibility").First(&cur, *img.AlbumID).Error; err == nil && cur.Visibility == "private" {
+				return nil, ErrAlbumForcesPrivate
+			}
+		}
+	}
 	if p.Name != nil {
 		n := strings.TrimSpace(*p.Name)
 		if n == "" || len(n) > 255 {
@@ -141,69 +165,22 @@ func (s *Service) Update(userID uint64, key string, p UpdatePatch) (*Row, error)
 			updates["slug"] = v
 		}
 	}
-	// 可见性变更 → surface 重挂(私密图对象层防护 S2):把 img 重挂到目标 surface 的 File,
-	// 复制对象(事务外),调 ref_count,旧 File 归零投递异步 purge。surface == visibility。
-	if p.Visibility != nil && *p.Visibility != img.Visibility {
+	// 可见性写入（含「已是 private 但 File 仍在 public/」的 v8 遗留）→ surface 重挂。
+	if p.Visibility != nil {
 		var oldFile model.File
 		if err := s.db.First(&oldFile, img.FileID).Error; err != nil {
 			return nil, err
 		}
-		var policy model.StoragePolicy
-		if err := s.db.First(&policy, oldFile.StoragePolicyID).Error; err != nil {
-			return nil, err
+		if fileSurface(oldFile) != *p.Visibility {
+			err := s.rehomeWithUpdates(&img, &oldFile, *p.Visibility, updates)
+			if errors.Is(err, errRehomeConflict) {
+				return s.Get(userID, key) // 并发已达目标态,返回当前
+			}
+			if err != nil {
+				return nil, err
+			}
+			return s.Get(userID, key)
 		}
-		newFile, err := s.resolveFileForSurface(&policy, &oldFile, *p.Visibility)
-		if err != nil {
-			return nil, err
-		}
-		updates["file_id"] = newFile.ID
-		var pd *physicalDelete
-		err = s.db.Transaction(func(tx *gorm.DB) error {
-			// CAS 重挂:仅当 img 仍指向 oldFile 才重挂——防并发切换重复调 ref。
-			// 先于 ref 调整与删旧 File:此后 img 不再引用 oldFile,删其行不违反
-			// images.file_id 的 ON DELETE RESTRICT。
-			res := tx.Model(&model.Image{}).Where("id = ? AND file_id = ?", img.ID, oldFile.ID).Updates(updates)
-			if res.Error != nil {
-				return res.Error
-			}
-			if res.RowsAffected == 0 {
-				return errRehomeConflict // 并发已重挂,回滚(本事务未做 ref 变更)
-			}
-			// newFile ref++(条件:防并发 purge 删行,同 upload 秒传先例)
-			r1 := tx.Model(&model.File{}).Where("id = ?", newFile.ID).
-				UpdateColumn("ref_count", gorm.Expr("ref_count + 1"))
-			if r1.Error != nil {
-				return r1.Error
-			}
-			if r1.RowsAffected == 0 {
-				return gorm.ErrRecordNotFound
-			}
-			// oldFile ref--
-			if err := tx.Model(&model.File{}).Where("id = ?", oldFile.ID).
-				UpdateColumn("ref_count", gorm.Expr("ref_count - ?", 1)).Error; err != nil {
-				return err
-			}
-			// 条件删:仅当减后 ≤0 才删旧 File 行 → 备物理删除旧对象(此时 img 已重挂)
-			del := tx.Where("id = ? AND ref_count <= 0", oldFile.ID).Delete(&model.File{})
-			if del.Error != nil {
-				return del.Error
-			}
-			if del.RowsAffected == 1 {
-				pd = &physicalDelete{
-					policyID: oldFile.StoragePolicyID, path: oldFile.Path,
-					thumbs: storagesvc.ThumbKeyCandidates(oldFile.Surface, oldFile.Hash),
-				}
-			}
-			return nil
-		})
-		if errors.Is(err, errRehomeConflict) {
-			return s.Get(userID, key) // 并发已达目标态,返回当前
-		}
-		if err != nil {
-			return nil, err
-		}
-		s.enqueuePhysical(pd)
-		return s.Get(userID, key)
 	}
 
 	if len(updates) > 0 {

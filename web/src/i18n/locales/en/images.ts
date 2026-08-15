@@ -44,6 +44,7 @@ export default {
   copyUrlTitle: 'Copy URL',
   linkNameUrl: 'URL link',
   toggleVisibility: 'Toggle visibility',
+  albumForcesPrivate: 'Images in a private album cannot be made public',
   privateBadge: 'Private',
 
   colName: 'Name',

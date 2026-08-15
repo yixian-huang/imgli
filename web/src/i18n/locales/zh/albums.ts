@@ -82,6 +82,7 @@ export default {
   descriptionSaved: '说明已保存',
   setCover: '设为封面',
   coverSaved: '封面已保存',
+  coverMustBePublic: '公开相册的封面必须是无口令的公开图',
   accessPassword: '访问口令',
   accessPasswordHint: '仅保护相册访客页，不改变图直链权限',
   accessPasswordSet: '已设置口令',

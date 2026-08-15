@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useAlbums, useBatchImages } from '../../api/hooks'
 import type { BatchResult, ImageItem } from '../../api/types'
 import { useT } from '../../i18n'
+import { albumForcesPrivate } from '../../lib/albumPrivacy'
 import { previewBatchRename } from '../../lib/batchRename'
 import { cn } from '../../lib/cn'
 import { copyText } from '../../lib/copy'
@@ -68,6 +69,10 @@ export function BatchBar({ selected, items, onClear, albumId }: Props) {
     if (albumId == null) return ''
     return albums.data?.items.find((a) => a.id === albumId)?.name ?? ''
   }, [albumId, albums.data?.items])
+  const blockBatchPublic =
+    selectedItems.length > 0 &&
+    (albumForcesPrivate(albums.data?.items, albumId) ||
+      selectedItems.every((i) => albumForcesPrivate(albums.data?.items, i.album_id)))
 
   const previewRows = useMemo(
     () =>
@@ -242,7 +247,11 @@ export function BatchBar({ selected, items, onClear, albumId }: Props) {
         <div className="mb-1.5 font-mono text-2xs tracking-[0.14em] text-muted">BATCH VISIBILITY</div>
         <div className="mb-3 text-[14.5px] font-bold">{t('images.setAs', { count: selected.size })}</div>
         <div className="flex flex-col gap-1.5">
-          <Button onClick={() => run({ action: 'visibility', keys, visibility: 'public' }, t('images.verbPublic'))}>
+          <Button
+            disabled={blockBatchPublic}
+            title={blockBatchPublic ? t('images.albumForcesPrivate') : undefined}
+            onClick={() => run({ action: 'visibility', keys, visibility: 'public' }, t('images.verbPublic'))}
+          >
             {t('images.setPublic')}
           </Button>
           <Button onClick={() => run({ action: 'visibility', keys, visibility: 'private' }, t('images.verbPrivate'))}>

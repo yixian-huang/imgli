@@ -13,6 +13,7 @@ import {
 } from '../../api/hooks'
 import type { ImageItem } from '../../api/types'
 import { useT } from '../../i18n'
+import { albumForcesPrivate } from '../../lib/albumPrivacy'
 import { copyText } from '../../lib/copy'
 import { formatDate } from '../../lib/format'
 import { cn } from '../../lib/cn'
@@ -97,8 +98,14 @@ export function AlbumDetailPage() {
     )
   }
 
-  const quickVis = (item: ImageItem) =>
-    update.mutate({ key: item.key, body: { visibility: item.visibility === 'public' ? 'private' : 'public' } })
+  const quickVis = (item: ImageItem) => {
+    const next = item.visibility === 'public' ? 'private' : 'public'
+    if (next === 'public' && albumForcesPrivate(albums.data?.items, item.album_id)) {
+      pushToast(t('images.albumForcesPrivate'))
+      return
+    }
+    update.mutate({ key: item.key, body: { visibility: next } })
+  }
 
   const allSelected = items.length > 0 && selected.size === items.length
   const toggleAll = () => setSelected(allSelected ? new Set() : new Set(items.map((i) => i.key)))
@@ -109,6 +116,11 @@ export function AlbumDetailPage() {
   }
 
   const listInPlaza = album?.list_in_plaza !== false
+  const selectedCover = selected.size === 1 ? items.find((i) => selected.has(i.key)) : undefined
+  const coverBlocked =
+    album?.visibility === 'public' &&
+    !!selectedCover &&
+    (selectedCover.visibility === 'private' || !!selectedCover.has_access_password)
 
   return (
     <div className="mx-auto max-w-[1120px] pt-11">
@@ -226,10 +238,15 @@ export function AlbumDetailPage() {
             </Button>
             {selected.size === 1 && (
               <Button
-                disabled={updateAlbum.isPending}
+                disabled={updateAlbum.isPending || coverBlocked}
+                title={coverBlocked ? t('albums.coverMustBePublic') : undefined}
                 onClick={() => {
                   const key = [...selected][0]
                   if (!key) return
+                  if (coverBlocked) {
+                    pushToast(t('albums.coverMustBePublic'))
+                    return
+                  }
                   updateAlbum.mutate(
                     { id, body: { cover_key: key } },
                     { onSuccess: () => pushToast(t('albums.coverSaved')) },

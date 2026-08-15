@@ -21,7 +21,7 @@ class FakeIO {
   unobserve() {}
 }
 
-function mockBackend(visibility: 'public' | 'private' = 'private') {
+function mockBackend(visibility: 'public' | 'private' = 'private', imageVis: 'public' | 'private' = 'public') {
   vi.stubGlobal(
     'fetch',
     vi.fn((url: RequestInfo | URL, init?: RequestInit) => {
@@ -51,7 +51,7 @@ function mockBackend(visibility: 'public' | 'private' = 'private') {
       if (init?.method === 'PATCH') return Promise.resolve(jsonRes(env({ id: 7, name: '改名', visibility: 'public' })))
       if (u.includes('/images?'))
         return Promise.resolve(
-          jsonRes(env({ items: [{ key: 'a', name: 'a.png', ext: 'png', size: 1, width: 1, height: 1, visibility: 'public', album_id: 7, created_at: '2026-07-16T00:00:00Z', expires_at: null, links: LINKS }], next_cursor: '' })),
+          jsonRes(env({ items: [{ key: 'a', name: 'a.png', ext: 'png', size: 1, width: 1, height: 1, visibility: imageVis, album_id: 7, created_at: '2026-07-16T00:00:00Z', expires_at: null, links: LINKS }], next_cursor: '' })),
         )
       return Promise.resolve(jsonRes(env(null)))
     }),
@@ -146,4 +146,25 @@ it('公开相册：复制访客链接有 toast，并提供打开访客页入口'
   })
   expect(useGlobal.getState().toasts.some((t) => t.message.includes('访客链接'))).toBe(true)
   open.mockRestore()
+})
+
+it('私密相册内快捷切换不把图改回公开', async () => {
+  const user = userEvent.setup()
+  mockBackend('private', 'private')
+  useGlobal.setState({ toasts: [] })
+  renderPage()
+  await screen.findByText('a.png')
+  await user.click(screen.getByTitle('切换可见性'))
+  await waitFor(() => {
+    expect(useGlobal.getState().toasts.some((t) => t.message.includes('不能设为公开'))).toBe(true)
+  })
+  const visPatch = vi.mocked(fetch).mock.calls.find((c) => {
+    if ((c[1] as RequestInit)?.method !== 'PATCH') return false
+    try {
+      return JSON.parse((c[1] as RequestInit).body as string).visibility === 'public'
+    } catch {
+      return false
+    }
+  })
+  expect(visPatch).toBeFalsy()
 })
