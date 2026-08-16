@@ -3,7 +3,24 @@
 > **Planning SSOT is internal** (`imgli/roadmap` in the project knowledge base).  
 > This file is a **public, de-sensitized mirror** for contributors. Prefer GitHub Issues + Milestones for execution.
 
-## Latest shipped — v0.9.6 · Self-host robustness (SQLite / Docker / low-RAM)
+## Latest shipped — v0.9.13 · Upload drag-and-drop
+
+Release: https://github.com/yixian-huang/imgli/releases/tag/v0.9.13
+
+One drop onto the upload area queues and uploads once; dragging out of the
+page without dropping clears the overlay; moving inside the drop zone no
+longer flickers the highlight. See [CHANGELOG](CHANGELOG.md#0913---2026-08-16).
+
+## Previous — v0.9.12 · Private album privacy + origin serve cache
+
+Release: https://github.com/yixian-huang/imgli/releases/tag/v0.9.12
+
+Private albums no longer leak to plaza / anonymous `/i` / `/s`; password images
+stay off discovery; public covers must be public. Optional origin cache under
+`{data_dir}/.serve-cache` (disable with `IMGLI_SERVE_CACHE_DISABLED`). First
+boot runs schema v8 + surface rehome. See [CHANGELOG](CHANGELOG.md#0912---2026-08-15).
+
+## Previous — v0.9.6 · Self-host robustness (SQLite / Docker / low-RAM)
 
 Release: https://github.com/yixian-huang/imgli/releases/tag/v0.9.6
 
