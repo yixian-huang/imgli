@@ -13,6 +13,7 @@ separate version in `go.mod` or `web/package.json`.
 ### Fixed
 
 - **Duplicate drag-and-drop uploads:** dropping an image onto the upload area no longer creates duplicate queue entries or upload requests.
+- **Stuck drag-and-drop overlay:** dragging an image out of the upload page without dropping it now clears the upload prompt and highlight.
 
 ## [0.9.12] - 2026-08-15
 

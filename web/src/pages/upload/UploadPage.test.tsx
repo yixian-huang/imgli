@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { createEvent, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { sessionKey } from '../../api/hooks'
@@ -172,6 +172,29 @@ it('拖放文件只入队并上传一次，且清除拖拽提示', async () => {
   expect(useUploadQueue.getState().items[0]?.name).toBe('drop.png')
   expect(uploadFile).toHaveBeenCalledTimes(1)
   expect(screen.queryByText('松开即上传')).not.toBeInTheDocument()
+})
+
+it('拖入后移出页面会清除拖拽提示且不上传', async () => {
+  renderPage()
+  await screen.findByText(/MAX 20 MB/)
+  const dz = screen.getByTestId('dropzone')
+  const pageContent = screen.getByText('上传图片')
+  const file = new File([new Uint8Array(10)], 'cancel.png', { type: 'image/png' })
+
+  fireEvent.dragOver(dz, { dataTransfer: { files: [file], types: ['Files'] } })
+  expect(screen.getAllByText('松开即上传')).toHaveLength(2)
+
+  const moveInside = createEvent.dragLeave(dz)
+  Object.defineProperty(moveInside, 'relatedTarget', { value: pageContent })
+  fireEvent(dz, moveInside)
+  expect(screen.getAllByText('松开即上传')).toHaveLength(1)
+
+  const leavePage = createEvent.dragLeave(pageContent)
+  Object.defineProperty(leavePage, 'relatedTarget', { value: document.body })
+  fireEvent(pageContent, leavePage)
+  expect(screen.queryByText('松开即上传')).not.toBeInTheDocument()
+  expect(useUploadQueue.getState().items).toHaveLength(0)
+  expect(uploadFile).not.toHaveBeenCalled()
 })
 
 it('URL 抓取行：非法 URL toast，合法入队', async () => {

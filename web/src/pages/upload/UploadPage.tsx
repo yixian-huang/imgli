@@ -268,7 +268,11 @@ export function UploadPage() {
         if (e.dataTransfer.types.includes('Files')) setPageDrag(true)
       }}
       onDragLeave={(e) => {
-        if (e.currentTarget === e.target) setPageDrag(false)
+        const nextTarget = e.relatedTarget
+        if (!(nextTarget instanceof Node) || !e.currentTarget.contains(nextTarget)) {
+          setPageDrag(false)
+          setDrag(false)
+        }
       }}
       onDrop={(e) => {
         e.preventDefault()
