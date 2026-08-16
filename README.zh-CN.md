@@ -93,6 +93,8 @@
   [CHANGELOG](CHANGELOG.md) · [站点定制 IA](docs/design/site-customization-ia.md)。
 - **v0.9.6**：自托管健壮性——SQLite 低内存/绑定挂载 OOM 缓解、Docker entrypoint 修正
   绑定卷属主、libvips 默认并发上限。
+- **v0.9.12**：私密相册不再漏到广场 / 匿名 `/i` / `/s`；公开源站缓存（`{data_dir}/.serve-cache`，可关）。
+- **v0.9.13**：上传拖放一次只入队一次；拖出页面或在投放区内移动不再卡住/闪烁 overlay。
 - **细节**:中英双语界面、PWA、浅色/深色/**跟随系统**主题、文字水印(内嵌中文字体子集)、
   带审计日志与轻量运营统计的管理后台。
 
@@ -113,7 +115,7 @@ imgli serve
 固定版本或安装路径：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yixian-huang/imgli/main/scripts/install.sh | sh -s -- v0.9.6
+curl -fsSL https://raw.githubusercontent.com/yixian-huang/imgli/main/scripts/install.sh | sh -s -- v0.9.13
 PREFIX=/usr/local/bin curl -fsSL https://raw.githubusercontent.com/yixian-huang/imgli/main/scripts/install.sh | sh
 ```
 
@@ -129,7 +131,7 @@ docker run --rm -p 8686:8686 -v imgli-data:/data \
 # → http://localhost:8686（第一个注册用户即管理员）
 ```
 
-固定版本用 `ghcr.io/yixian-huang/imgli:v0.9.6`（见
+固定版本用 `ghcr.io/yixian-huang/imgli:v0.9.13`（见
 [Releases](https://github.com/yixian-huang/imgli/releases)）。
 
 ### Docker Compose
@@ -150,7 +152,7 @@ TLS 反代片段：[`deploy/Caddyfile.example`](deploy/Caddyfile.example)、
 
 ```bash
 make build          # 需要 Go ≥ 1.26、Node ≥ 24
-./imgli version     # ldflags 注入的 git tag，如 v0.9.6
+./imgli version     # ldflags 注入的 git tag，如 v0.9.13
 ./imgli serve       # → http://localhost:8686
 ```
 

@@ -115,6 +115,19 @@ curl -sfS https://img.li/healthz
 3. **原图 WebP**：Docker 镜像默认带 libvips；纯 Go GitHub 二进制无 vips 时 `processing_capabilities.webp_encode` 为 false，后台勿强开 WebP。
 4. 系统页可读出 `imaging_backend` / `webp_encode`。
 
+## 升级到 v0.9.13（上传拖放）
+
+1. 滚动部署新二进制/镜像即可，**无 schema / 存储迁移**。
+2. 验收：往上传区丢一张图只出现一条队列、一次上传；拖入后不松手移出页面，overlay 消失且未入队；在投放区文字/图标间移动时内层高亮不闪。
+3. `imgli version` 为 **v0.9.13**；SPA 冒烟（本页「部署后」表）。
+
+## 升级到 v0.9.12（私密相册隐私 · 源站缓存）
+
+1. 滚动部署新二进制/镜像。首次启动会跑 **schema v8**（把私密相册里仍标 public 的图改为 private），并 **best-effort 纠偏** `files.surface` 与 `images.visibility` 不一致的对象（`public/` ↔ `private/` 搬迁，可能有额外 I/O）。
+2. **隐私行为**：私密相册内的图不进广场；匿名 `/i` 401；父相册私密时 `/s` 与分享 OG 404；不能在私密相册内把图改回公开；公开相册封面必须是公开且无口令的图；首页公开统计 `live_image_count` 只计未过期、无口令的公开图。
+3. **源站缓存**（默认开）：公开 `/t` 与未 302 的 `/i` 落在 `{data_dir}/.serve-cache`（默认 512MiB）。关闭：`IMGLI_SERVE_CACHE_DISABLED=true` 或 YAML `serve_cache_disabled: true`。
+4. 验收：私密相册抽一张图确认广场不可见、匿名直链 401、分享页 404；公开热链重复请求应命中缓存（S3 GET 下降）；`imgli version` 为 **v0.9.12**；SPA 冒烟（本页「部署后」表）。
+
 ## 升级到 v0.9.5（暗色 · 站点外观）
 
 1. 滚动部署新二进制/镜像（settings 缺省键在启动 Seed 写入：`theme_bg_dim=0.72`、`theme_glass=0.78`，accent/背景 URL 默认为空）。

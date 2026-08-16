@@ -10,10 +10,14 @@ separate version in `go.mod` or `web/package.json`.
 
 ## [Unreleased]
 
+## [0.9.13] - 2026-08-16
+
+Theme: **Upload drag-and-drop correctness**.
+
 ### Fixed
 
 - **Duplicate drag-and-drop uploads:** dropping an image onto the upload area no longer creates duplicate queue entries or upload requests.
-- **Stuck drag-and-drop overlay:** dragging an image out of the upload page without dropping it now clears the upload prompt and highlight.
+- **Stuck / flickering drag overlay:** dragging out of the upload page without dropping now clears the prompt; moving among elements inside the drop zone no longer clears the drop-zone highlight.
 
 ## [0.9.12] - 2026-08-15
 
@@ -523,7 +527,8 @@ Theme: **Workflow & Trust** — CLI/integrations, share landing, privacy
 - Bilingual UI (中文/English), PWA, dark mode, text watermark, admin audit logs.
 - Docker Compose quick start and GitHub Actions CI (Go matrix, web, e2e smoke).
 
-[Unreleased]: https://github.com/yixian-huang/imgli/compare/v0.9.12...HEAD
+[Unreleased]: https://github.com/yixian-huang/imgli/compare/v0.9.13...HEAD
+[0.9.13]: https://github.com/yixian-huang/imgli/compare/v0.9.12...v0.9.13
 [0.9.12]: https://github.com/yixian-huang/imgli/compare/v0.9.11...v0.9.12
 [0.9.11]: https://github.com/yixian-huang/imgli/compare/v0.9.10...v0.9.11
 [0.9.10]: https://github.com/yixian-huang/imgli/compare/v0.9.9...v0.9.10

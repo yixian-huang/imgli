@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAlbums, useConfig, useQuota, useSession, useUserPolicies } from '../../api/hooks'
@@ -28,6 +28,12 @@ import { FirstRunOnboarding } from './FirstRunOnboarding'
 import { InstanceStatsBar } from './InstanceStatsBar'
 
 const URL_RE = /^https?:\/\/\S+$/
+
+/** 嵌套子节点之间移动时 relatedTarget 仍在当前元素内，不应当成离开。 */
+function dragLeftElement(e: DragEvent) {
+  const next = e.relatedTarget
+  return !(next instanceof Node) || !e.currentTarget.contains(next)
+}
 
 /** Re-export for tests / callers that imported presets from this page. */
 export { EXPIRY_PRESETS }
@@ -268,8 +274,7 @@ export function UploadPage() {
         if (e.dataTransfer.types.includes('Files')) setPageDrag(true)
       }}
       onDragLeave={(e) => {
-        const nextTarget = e.relatedTarget
-        if (!(nextTarget instanceof Node) || !e.currentTarget.contains(nextTarget)) {
+        if (dragLeftElement(e)) {
           setPageDrag(false)
           setDrag(false)
         }
@@ -393,7 +398,9 @@ export function UploadPage() {
           if (needLogin) return
           if (!drag) setDrag(true)
         }}
-        onDragLeave={() => setDrag(false)}
+        onDragLeave={(e) => {
+          if (dragLeftElement(e)) setDrag(false)
+        }}
         onDrop={(e) => {
           e.preventDefault()
           e.stopPropagation()
