@@ -174,6 +174,32 @@ it('拖放文件只入队并上传一次，且清除拖拽提示', async () => {
   expect(screen.queryByText('松开即上传')).not.toBeInTheDocument()
 })
 
+it('丢在标题栏（dropzone 外）也只入队并上传一次', async () => {
+  renderPage()
+  await screen.findByText(/MAX 20 MB/)
+  const header = screen.getByTestId('page-header')
+  const file = new File([new Uint8Array(10)], 'page.png', { type: 'image/png' })
+  fireEvent.drop(header, { dataTransfer: { files: [file], types: ['Files'] } })
+  expect(useUploadQueue.getState().items).toHaveLength(1)
+  expect(useUploadQueue.getState().items[0]?.name).toBe('page.png')
+  expect(uploadFile).toHaveBeenCalledTimes(1)
+})
+
+it('在 dropzone 内移动不清除投放高亮', async () => {
+  renderPage()
+  await screen.findByText(/MAX 20 MB/)
+  const dz = screen.getByTestId('dropzone')
+  const inside = screen.getByText(/MAX 20 MB/)
+  const file = new File([new Uint8Array(10)], 'stay.png', { type: 'image/png' })
+  fireEvent.dragOver(dz, { dataTransfer: { files: [file], types: ['Files'] } })
+  expect(screen.getAllByText('松开即上传')).toHaveLength(2)
+
+  const moveInside = createEvent.dragLeave(dz)
+  Object.defineProperty(moveInside, 'relatedTarget', { value: inside })
+  fireEvent(dz, moveInside)
+  expect(screen.getAllByText('松开即上传')).toHaveLength(2)
+})
+
 it('拖入后移出页面会清除拖拽提示且不上传', async () => {
   renderPage()
   await screen.findByText(/MAX 20 MB/)
