@@ -1,3 +1,5 @@
+
+
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/brand/svg/lockup-dark.svg">
@@ -259,7 +261,7 @@ admin **System / Ops** (`GET /admin/system/health`). See also
 ```bash
 make test        # go vet + go test (sqlite; set IMGLI_TEST_PG_DSN for postgres)
 make test-web    # vitest
-cd web && npm run e2e   # Playwright, builds the binary first
+cd web && npm run e2e   # Playwright (run make build first)
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) (includes versioning / release steps).
