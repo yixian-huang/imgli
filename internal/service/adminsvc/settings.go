@@ -46,8 +46,19 @@ var (
 	ErrAboutBodyInvalid = apperr.New("about_body 格式无效")
 	// ErrWelcomeEmailInvalid welcome_email 需为布尔值。
 	ErrWelcomeEmailInvalid = apperr.New("welcome_email 需为布尔值")
-	// ErrSMTPInvalid smtp 配置：port 需 1-65535、encryption 需 none|starttls|ssl、from 需为邮箱或留空。
-	ErrSMTPInvalid = apperr.New("smtp 配置无效:port 需 1-65535、encryption 需 none|starttls|ssl、from 需为邮箱或留空")
+	// ErrSMTPInvalid smtp JSON 无法解析。字段级错误见下面几条，避免一条文案兜住所有失败。
+	ErrSMTPInvalid = apperr.New("smtp 配置无效")
+	// ErrSMTPPortInvalid 端口越界。
+	ErrSMTPPortInvalid = apperr.New("SMTP 端口需为 1–65535")
+	// ErrSMTPEncryptionInvalid encryption 不是 none|starttls|ssl。
+	ErrSMTPEncryptionInvalid = apperr.New("加密方式仅支持 无加密 / STARTTLS / SSL")
+	// ErrSMTPFromInvalid from 非空且不是邮箱。
+	ErrSMTPFromInvalid = apperr.New("发件人需为邮箱地址（如 noreply@example.com），或留空则使用用户名")
+	// ErrSMTPNoneWithAuth 明文 + 用户名：net/smtp 会拒发凭据。
+	ErrSMTPNoneWithAuth = apperr.New("填了用户名就不能选「无加密」。请改用 STARTTLS 或 SSL")
+	// ErrSMTPPasswordReenter 掩码密码回传时改了 host/username：必须重输，避免把旧凭据打到新服务器。
+	// 飞书/Lark 公共邮箱用户常先存密码再改用户名为完整邮箱，旧笼统错误会被理解成端口/加密填错。
+	ErrSMTPPasswordReenter = apperr.New("改了 SMTP 服务器或用户名，请重新输入密码")
 	// ErrHotlinkDomainInvalid 防盗链域名不合法（空/空白/scheme/路径/非法通配）。
 	ErrHotlinkDomainInvalid = apperr.New("防盗链域名不合法")
 	// theme_accent / theme_bg_* 错误见 theme.go（ErrThemeAccentInvalid 等）。
@@ -141,6 +152,11 @@ func (s *Service) GetSettings() (map[string]any, error) {
 	_ = st.Get(model.SettingAboutBody, &aboutBody)
 	welcomeEmail = true
 	_ = st.Get(model.SettingWelcomeEmail, &welcomeEmail)
+	mailTpl := mail.DefaultTemplates()
+	if err := st.Get(model.SettingMailTemplates, &mailTpl); err != nil && !errors.Is(err, settings.ErrNotFound) {
+		return nil, err
+	}
+	mailTpl = mailTpl.Normalize()
 	_ = st.Get(model.SettingThemeAccent, &themeAccent)
 	_ = st.Get(model.SettingThemeBgColor, &themeBgColor)
 	_ = st.Get(model.SettingThemeBgImageURL, &themeBgImageURL)
@@ -175,18 +191,18 @@ func (s *Service) GetSettings() (map[string]any, error) {
 		"guest_upload_enabled": guestUpload,
 		"plaza_enabled":        plazaEnabled,
 		"moderation": map[string]any{
-			"enabled":            modCfg.Enabled,
-			"provider":           modCfg.Provider,
-			"endpoint":           modCfg.Endpoint,
-			"api_key":            maskAPIKey(modCfg.APIKey),
-			"threshold":          modCfg.Threshold,
-			"action":             modCfg.Action,
-			"access_key_id":      modCfg.AccessKeyID,
-			"access_key_secret":  maskAPIKey(modCfg.AccessKeySecret),
-			"region":             modCfg.Region,
-			"login_sample_rate":  modCfg.LoginSampleRate,
-			"on_plugin_error":    modCfg.OnPluginError,
-			"notify_on_reject":   modCfg.NotifyOnReject,
+			"enabled":           modCfg.Enabled,
+			"provider":          modCfg.Provider,
+			"endpoint":          modCfg.Endpoint,
+			"api_key":           maskAPIKey(modCfg.APIKey),
+			"threshold":         modCfg.Threshold,
+			"action":            modCfg.Action,
+			"access_key_id":     modCfg.AccessKeyID,
+			"access_key_secret": maskAPIKey(modCfg.AccessKeySecret),
+			"region":            modCfg.Region,
+			"login_sample_rate": modCfg.LoginSampleRate,
+			"on_plugin_error":   modCfg.OnPluginError,
+			"notify_on_reject":  modCfg.NotifyOnReject,
 			"ocr_keywords": map[string]any{
 				"enabled":  modCfg.OCRKeywords.Enabled,
 				"endpoint": modCfg.OCRKeywords.Endpoint,
@@ -209,25 +225,27 @@ func (s *Service) GetSettings() (map[string]any, error) {
 		"processing_capabilities": map[string]any{
 			"webp_encode": imaging.WebPEncodeAvailable(),
 		},
-		"announcement": ann,
-		"footer":           foot,
-		"html_inject":      htmlInj,
-		"help_url":         helpURL,
-		"upgrade_url":      upgradeURL,
-		"register_notice":  regNotice,
-		"share_branding":   shareBrand,
-		"favicon_url":      faviconURL,
-		"source_url":       sourceURL,
-		"oss_credit":       ossCredit,
-		"about_enabled":    aboutEnabled,
-		"about_body":       aboutBody,
-		"welcome_email":    welcomeEmail,
-		"theme_accent":        themeAccent,
-		"theme_bg_color":      themeBgColor,
-		"theme_bg_image_url":  themeBgImageURL,
-		"theme_bg_dim":        themeBgDim,
-		"theme_glass":         themeGlass,
-		"public_stats":        pubStats,
+		"announcement":           ann,
+		"footer":                 foot,
+		"html_inject":            htmlInj,
+		"help_url":               helpURL,
+		"upgrade_url":            upgradeURL,
+		"register_notice":        regNotice,
+		"share_branding":         shareBrand,
+		"favicon_url":            faviconURL,
+		"source_url":             sourceURL,
+		"oss_credit":             ossCredit,
+		"about_enabled":          aboutEnabled,
+		"about_body":             aboutBody,
+		"welcome_email":          welcomeEmail,
+		"mail_templates":         mailTpl,
+		"mail_template_defaults": mail.BuiltinDefaults(),
+		"theme_accent":           themeAccent,
+		"theme_bg_color":         themeBgColor,
+		"theme_bg_image_url":     themeBgImageURL,
+		"theme_bg_dim":           themeBgDim,
+		"theme_glass":            themeGlass,
+		"public_stats":           pubStats,
 	}, nil
 }
 
@@ -333,33 +351,11 @@ func (s *Service) PutSettings(patch map[string]json.RawMessage) error {
 			if err := json.Unmarshal(raw, &cfg); err != nil {
 				return ErrSMTPInvalid
 			}
-			if cfg.Port < 1 || cfg.Port > 65535 {
-				return ErrSMTPInvalid
+			prepared, err := s.PrepareSMTP(cfg)
+			if err != nil {
+				return err
 			}
-			switch cfg.Encryption {
-			case "none", "starttls", "ssl":
-			default:
-				return ErrSMTPInvalid
-			}
-			// net/smtp PlainAuth 拒绝非 TLS 连接——none+认证必然发送失败,保存时拒绝。
-			if cfg.Encryption == "none" && cfg.Username != "" {
-				return ErrSMTPInvalid
-			}
-			if cfg.From != "" && !smtpFromRe.MatchString(cfg.From) {
-				return ErrSMTPInvalid
-			}
-			if strings.HasPrefix(cfg.Password, "****") {
-				var cur mail.Config
-				if err := st.Get(model.SettingSMTP, &cur); err != nil && !errors.Is(err, settings.ErrNotFound) {
-					return err
-				}
-				// 防 admin 改指向受控服务器窃取旧凭据:仅 host+username 均未变才保留密码。
-				if cfg.Host != cur.Host || cfg.Username != cur.Username {
-					return ErrSMTPInvalid
-				}
-				cfg.Password = cur.Password
-			}
-			writes = append(writes, settingWrite{model.SettingSMTP, cfg})
+			writes = append(writes, settingWrite{model.SettingSMTP, prepared})
 
 		case model.SettingHotlink:
 			var cfg stats.HotlinkConfig
@@ -517,6 +513,17 @@ func (s *Service) PutSettings(patch map[string]json.RawMessage) error {
 			}
 			writes = append(writes, settingWrite{model.SettingWelcomeEmail, enabled})
 
+		case model.SettingMailTemplates:
+			var tpl mail.Templates
+			if err := json.Unmarshal(raw, &tpl); err != nil {
+				return mail.ErrCopyInvalid
+			}
+			tpl = tpl.Normalize()
+			if err := mail.ValidateTemplates(tpl); err != nil {
+				return err
+			}
+			writes = append(writes, settingWrite{model.SettingMailTemplates, tpl})
+
 		case model.SettingThemeAccent:
 			var a string
 			if err := json.Unmarshal(raw, &a); err != nil {
@@ -597,6 +604,41 @@ func (s *Service) PutSettings(patch map[string]json.RawMessage) error {
 		}
 	}
 	return nil
+}
+
+// PrepareSMTP 校验并规整 SMTP 配置（trim host/username/from；掩码密码按身份解析）。
+// 保存与「用表单值测发信」共用，避免测发信绕过改指向不得沿用旧密码的纪律。
+func (s *Service) PrepareSMTP(cfg mail.Config) (mail.Config, error) {
+	cfg.Host = strings.TrimSpace(cfg.Host)
+	cfg.Username = strings.TrimSpace(cfg.Username)
+	cfg.From = strings.TrimSpace(cfg.From)
+	if cfg.Port < 1 || cfg.Port > 65535 {
+		return cfg, ErrSMTPPortInvalid
+	}
+	switch cfg.Encryption {
+	case "none", "starttls", "ssl":
+	default:
+		return cfg, ErrSMTPEncryptionInvalid
+	}
+	// net/smtp PlainAuth / LOGIN 均拒绝非 TLS 连接——none+认证必然发送失败,保存时拒绝。
+	if cfg.Encryption == "none" && cfg.Username != "" {
+		return cfg, ErrSMTPNoneWithAuth
+	}
+	if cfg.From != "" && !smtpFromRe.MatchString(cfg.From) {
+		return cfg, ErrSMTPFromInvalid
+	}
+	if strings.HasPrefix(cfg.Password, "****") {
+		var cur mail.Config
+		if err := s.settings().Get(model.SettingSMTP, &cur); err != nil && !errors.Is(err, settings.ErrNotFound) {
+			return cfg, err
+		}
+		// 防 admin 改指向受控服务器窃取旧凭据:仅 host+username 均未变才保留密码。
+		if cfg.Host != cur.Host || cfg.Username != cur.Username {
+			return cfg, ErrSMTPPasswordReenter
+		}
+		cfg.Password = cur.Password
+	}
+	return cfg, nil
 }
 
 // normalizeHotlink 校验并规整防盗链配置:域名逐项 TrimSpace 后须非空、无内部空白、

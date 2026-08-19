@@ -3,7 +3,16 @@
 > **Planning SSOT is internal** (`imgli/roadmap` in the project knowledge base).  
 > This file is a **public, de-sensitized mirror** for contributors. Prefer GitHub Issues + Milestones for execution.
 
-## Latest shipped — v0.9.13 · Upload drag-and-drop
+## Latest shipped — v0.9.14 · Lark/Feishu SMTP + mail copy
+
+Release: https://github.com/yixian-huang/imgli/releases/tag/v0.9.14
+
+Lark/Feishu public-mailbox SMTP can be saved and tested (LOGIN auth, form-based
+test send, explicit password-reenter). Operators can override zh/en subject and
+body for the five transactional mails without editing HTML. See
+[CHANGELOG](CHANGELOG.md#0914---2026-08-19).
+
+## Previous — v0.9.13 · Upload drag-and-drop
 
 Release: https://github.com/yixian-huang/imgli/releases/tag/v0.9.13
 

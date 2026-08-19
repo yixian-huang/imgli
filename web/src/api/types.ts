@@ -497,6 +497,15 @@ export interface AdminSMTP {
   encryption: 'none' | 'starttls' | 'ssl'
 }
 
+export type MailKind = 'welcome' | 'verify' | 'reset' | 'change_email' | 'reject'
+
+export interface MailKindCopy {
+  subject?: LocaleMap
+  body?: LocaleMap
+}
+
+export type MailTemplates = Partial<Record<MailKind, MailKindCopy>>
+
 export interface HotlinkSettings {
   enabled: boolean
   allowed_domains: string[]
@@ -590,6 +599,9 @@ export interface AdminSettings {
   about_enabled?: boolean
   about_body?: string | { zh?: string; en?: string }
   welcome_email?: boolean
+  mail_templates?: MailTemplates
+  /** 内置默认文案（只读，供「填入默认」）。 */
+  mail_template_defaults?: MailTemplates
   /** Brand accent (#RRGGBB); empty = product default btn colors */
   theme_accent?: string
   /** Optional solid page background (#RRGGBB); empty = light/dark default */

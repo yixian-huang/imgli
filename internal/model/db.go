@@ -34,12 +34,13 @@ const (
 	SettingRegisterNotice = "register_notice" // 注册页短说明（可选）
 	SettingShareBranding  = "share_branding"  // off | site | links
 	// v0.5 轻度站配 / AGPL 合规辅助（单实例 OSS；非白标）
-	SettingFaviconURL   = "favicon_url"   // 可选自定义 favicon URL；空=内置 brand
-	SettingSourceURL    = "source_url"    // AGPL 对应源码 URL；空不展示
-	SettingOSSCredit    = "oss_credit"    // on | off；页脚「基于 imgli」默认可关
-	SettingAboutEnabled = "about_enabled" // 是否启用 /about
-	SettingAboutBody    = "about_body"    // 关于页正文 locale map {zh,en}
-	SettingWelcomeEmail = "welcome_email" // bool；SMTP 已配时注册欢迎信，默认 true
+	SettingFaviconURL    = "favicon_url"    // 可选自定义 favicon URL；空=内置 brand
+	SettingSourceURL     = "source_url"     // AGPL 对应源码 URL；空不展示
+	SettingOSSCredit     = "oss_credit"     // on | off；页脚「基于 imgli」默认可关
+	SettingAboutEnabled  = "about_enabled"  // 是否启用 /about
+	SettingAboutBody     = "about_body"     // 关于页正文 locale map {zh,en}
+	SettingWelcomeEmail  = "welcome_email"  // bool；SMTP 已配时注册欢迎信，默认 true
+	SettingMailTemplates = "mail_templates" // JSON，见 internal/mail.Templates；空=内置文案
 	// v0.9.5 轻视觉：强调色 + 可选站点背景图
 	SettingThemeAccent     = "theme_accent"       // 空 | #RRGGBB；驱动主按钮/强调
 	SettingThemeBgColor    = "theme_bg_color"     // 空 | #RGB/#RRGGBB；整站纯色底（可与背景图叠加）
@@ -60,6 +61,9 @@ const settingModerationDefaultJSON = `{"enabled":false,"provider":"webhook","end
 // settingSMTPDefaultJSON 是 mail.DefaultConfig() 的 JSON 字面量,手写原因同上
 // (避免 model→mail 依赖;一致性由 mail_seed_test.go 外部断言)。
 const settingSMTPDefaultJSON = `{"host":"","port":587,"username":"","password":"","from":"","encryption":"starttls"}`
+
+// settingMailTemplatesDefaultJSON 与 mail.DefaultTemplates() 一致（全空=内置）。
+const settingMailTemplatesDefaultJSON = `{}`
 
 // settingHotlinkDefaultJSON 是 stats.DefaultHotlink() 的 JSON 字面量,手写原因同上
 // (避免 model→stats 依赖;一致性由 hotlink_seed_test.go 外部断言)。
@@ -268,6 +272,7 @@ func Seed(db *gorm.DB) error {
 			SettingAboutEnabled:    `false`,
 			SettingAboutBody:       `{"zh":"","en":""}`,
 			SettingWelcomeEmail:    `true`,
+			SettingMailTemplates:   settingMailTemplatesDefaultJSON,
 			SettingThemeAccent:     `""`,
 			SettingThemeBgColor:    `""`,
 			SettingThemeBgImageURL: `""`,

@@ -589,6 +589,7 @@ export interface SettingsBody {
   about_enabled?: boolean
   about_body?: AdminSettings['about_body']
   welcome_email?: boolean
+  mail_templates?: AdminSettings['mail_templates']
   theme_accent?: string
   theme_bg_color?: string
   theme_bg_image_url?: string
@@ -611,8 +612,33 @@ export function useUpdateSettings() {
 
 export function useTestSMTP() {
   return useMutation({
-    mutationFn: (body: { to: string }) => post('/admin/settings/smtp/test', body),
+    mutationFn: (body: { to: string; smtp?: AdminSettings['smtp'] }) =>
+      post('/admin/settings/smtp/test', body),
     // 页面行内展示成败；hook 级存根跳过全局兜底 toast
+    onError: () => {},
+  })
+}
+
+export function usePreviewMail() {
+  return useMutation({
+    mutationFn: (body: {
+      kind: string
+      lang: string
+      templates?: AdminSettings['mail_templates']
+    }) => post<{ subject: string; html: string }>('/admin/settings/mail/preview', body),
+    onError: () => {},
+  })
+}
+
+export function useTestMail() {
+  return useMutation({
+    mutationFn: (body: {
+      to: string
+      kind: string
+      lang: string
+      templates?: AdminSettings['mail_templates']
+      smtp?: AdminSettings['smtp']
+    }) => post('/admin/settings/mail/test', body),
     onError: () => {},
   })
 }

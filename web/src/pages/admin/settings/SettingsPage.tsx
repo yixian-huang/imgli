@@ -13,6 +13,10 @@ import { formatLexiconExport, mergeLexiconText, parseLexiconText } from './lexic
 import {
   formOf,
   SETTINGS_TABS,
+  smtpClientError,
+  smtpNeedsPasswordReenter,
+  smtpPayload,
+  smtpTestRecipient,
   type FormFooterGroup,
   type FormLocale,
   type FormState,
@@ -36,6 +40,7 @@ export function SettingsPage() {
   const [tab, setTab] = useState<SettingsTab>('basic')
   const [testTo, setTestTo] = useState('')
   const [testMsg, setTestMsg] = useState<string | null>(null)
+  const [testOk, setTestOk] = useState(false)
   const testSMTP = useTestSMTP()
   const testModeration = useTestModeration()
   const lexiconFileRef = useRef<HTMLInputElement>(null)
@@ -82,14 +87,29 @@ export function SettingsPage() {
   }
 
   const doTest = () => {
-    if (!testTo.includes('@')) return setTestMsg(t('adminB.invalidEmail'))
+    if (!form) return
+    const fail = (msg: string) => {
+      setTestOk(false)
+      setTestMsg(msg)
+    }
+    if (!form.smtpHost.trim()) return fail(t('adminB.smtpHostRequired'))
+    const clientErr = smtpClientError(form)
+    if (clientErr) return fail(t(`adminB.${clientErr}`))
+    if (smtpNeedsPasswordReenter(form, q.data?.smtp)) {
+      return fail(t('adminB.smtpPasswordReenter'))
+    }
+    const to = smtpTestRecipient(form, testTo)
+    if (!to.includes('@')) return fail(t('adminB.invalidEmail'))
     setTestMsg(null)
     testSMTP.mutate(
-      { to: testTo.trim() },
+      { to, smtp: smtpPayload(form) },
       {
-        onSuccess: () => setTestMsg(t('adminB.sentCheckInbox')),
+        onSuccess: () => {
+          setTestOk(true)
+          setTestMsg(t('adminB.sentCheckInbox'))
+        },
         onError: (err) =>
-          setTestMsg(err instanceof ApiError ? errorText(err.code, err.message) : t('adminB.sendFailed')),
+          fail(err instanceof ApiError ? errorText(err.code, err.message) : t('adminB.sendFailed')),
       },
     )
   }
@@ -109,6 +129,15 @@ export function SettingsPage() {
 
   const submit = () => {
     if (!form) return
+    const smtpErr = smtpClientError(form)
+    if (smtpErr) {
+      useGlobal.getState().pushToast(t(`adminB.${smtpErr}`))
+      return
+    }
+    if (smtpNeedsPasswordReenter(form, q.data?.smtp)) {
+      useGlobal.getState().pushToast(t('adminB.smtpPasswordReenter'))
+      return
+    }
     // 掩码凭据(****开头)仅在路由身份未变时后端才会保留;切 provider/改指向后
     // 发掩码值会被后端「改指向即失效」拒为 400,故此时清空——让后端按「缺凭据」
     // 给可操作校验错,而非阻断正常切换(codex 终审)。
@@ -148,14 +177,7 @@ export function SettingsPage() {
             on_hit: form.ocrOnHit,
           },
         },
-        smtp: {
-          host: form.smtpHost.trim(),
-          port: form.smtpPort,
-          username: form.smtpUser,
-          password: form.smtpPassword,
-          from: form.smtpFrom.trim(),
-          encryption: form.smtpEnc,
-        },
+        smtp: smtpPayload(form),
         hotlink: {
           enabled: form.hotlinkEnabled,
           allowed_domains: form.hotlinkDomains.split('\n').map((d) => d.trim()).filter(Boolean),
@@ -226,6 +248,7 @@ export function SettingsPage() {
           en: form.aboutBody.en.trim(),
         },
         welcome_email: form.welcomeEmail,
+        mail_templates: form.mailTemplates,
         theme_accent: form.themeAccent.trim(),
         theme_bg_color: form.themeBgColor.trim(),
         theme_bg_image_url: form.themeBgImageUrl.trim(),
@@ -333,6 +356,7 @@ export function SettingsPage() {
                 testTo={testTo}
                 setTestTo={setTestTo}
                 testMsg={testMsg}
+                testOk={testOk}
                 testPending={testSMTP.isPending}
                 onTest={doTest}
               />
