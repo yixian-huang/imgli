@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { RetryImg } from '../../ui/RetryImg'
 import { Link } from 'react-router'
 import type { DiscoverRow } from '../../api/types'
 
@@ -44,7 +45,7 @@ export function ImageCard({ row, onOpen }: Props) {
             {row.ext?.toUpperCase() || 'IMG'}
           </div>
         ) : (
-          <img
+          <RetryImg
             className="block h-full w-full object-cover"
             src={`/t/${row.key}`}
             alt={row.name}
@@ -67,7 +68,7 @@ export function ImageCard({ row, onOpen }: Props) {
               {initial}
             </span>
           ) : (
-            <img
+            <RetryImg
               className="h-[22px] w-[22px] flex-none rounded-full bg-soft object-cover"
               src={`/avatar/${row.author.user_id}?v=${row.author.avatar_version}`}
               alt=""

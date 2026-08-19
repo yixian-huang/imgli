@@ -6,6 +6,7 @@ import { copyText } from '../../lib/copy'
 import { formatBytes, formatDate } from '../../lib/format'
 import type { View } from '../../store'
 import { ArmedButton } from '../../ui/ArmedButton'
+import { RetryImg } from '../../ui/RetryImg'
 import { useWindowVirtual } from './useWindowVirtual'
 
 const LIST_ROW_H = 53 // ≈ padding + 36px thumb + border
@@ -120,7 +121,7 @@ const Card = memo(function Card({
         className={cn('relative aspect-square bg-soft', view === 'masonry' && 'aspect-auto')}
         style={view === 'masonry' ? { aspectRatio: `${item.width || 1} / ${item.height || 1}` } : undefined}
       >
-        <img className="block h-full w-full object-cover" src={item.links.thumbnail_url} alt={item.name} loading="lazy" />
+        <RetryImg className="block h-full w-full object-cover" src={item.links.thumbnail_url} alt={item.name} loading="lazy" />
         <Check item={item} selected={selected} onToggleSelect={a.onToggleSelect} />
         {item.visibility === 'private' && (
           <span className="absolute top-2 right-2 rounded-[2px] bg-btn px-1.5 py-px font-mono text-[9px] tracking-[0.08em] text-btn-text">
@@ -170,7 +171,7 @@ const ListRow = memo(function ListRow({
       >
         {selected ? '✓' : ''}
       </button>
-      <img
+      <RetryImg
         className="h-9 w-9 rounded-[2px] border border-border object-cover bg-soft"
         src={item.links.thumbnail_url}
         alt=""

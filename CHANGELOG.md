@@ -10,6 +10,20 @@ separate version in `go.mod` or `web/package.json`.
 
 ## [Unreleased]
 
+## [0.9.15] - 2026-08-19
+
+Theme: **MinIO/S3 first-load thumbnails**.
+
+### Fixed
+
+- **Broken library thumbs after upload on MinIO/S3:** the first `GET /t/{key}.jpg` could return JSON 500 (HEAD 403/503 or missing Content-Length right after PUT). `<img>` then showed the browser broken-image icon until a full refresh. `Open` now falls back to GET; a missing default thumb is generated from the original (same 400px edge as upload).
+- **`/t` `/i` 5xx for browsers:** image requests get an SVG placeholder with `Cache-Control: no-store` instead of a JSON envelope, so reverse proxies should not cache the error as a JPEG.
+
+### Changed
+
+- Library, admin, share, albums, plaza, and avatar `<img>` tags retry once with `?r=1` after a load error.
+- A successful upload invalidates the library and admin image lists (no full page reload required).
+
 ## [0.9.14] - 2026-08-19
 
 Theme: **Lark/Feishu SMTP + customizable mail copy**.
@@ -547,7 +561,8 @@ Theme: **Workflow & Trust** — CLI/integrations, share landing, privacy
 - Bilingual UI (中文/English), PWA, dark mode, text watermark, admin audit logs.
 - Docker Compose quick start and GitHub Actions CI (Go matrix, web, e2e smoke).
 
-[Unreleased]: https://github.com/yixian-huang/imgli/compare/v0.9.14...HEAD
+[Unreleased]: https://github.com/yixian-huang/imgli/compare/v0.9.15...HEAD
+[0.9.15]: https://github.com/yixian-huang/imgli/compare/v0.9.14...v0.9.15
 [0.9.14]: https://github.com/yixian-huang/imgli/compare/v0.9.13...v0.9.14
 [0.9.13]: https://github.com/yixian-huang/imgli/compare/v0.9.12...v0.9.13
 [0.9.12]: https://github.com/yixian-huang/imgli/compare/v0.9.11...v0.9.12

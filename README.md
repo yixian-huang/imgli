@@ -109,6 +109,8 @@ verify upstream docs before migrating.
   optional origin serve cache under `{data_dir}/.serve-cache`.
 - **v0.9.13** — upload drag-and-drop: one drop queues once; leaving the page
   (or moving inside the drop zone) no longer sticks or flickers the overlay.
+- **v0.9.15** — MinIO/S3 first `/t` after upload no longer JSON-500s; missing
+  thumbs generate on demand; SPA images retry once.
 - **v0.9.14** — Lark/Feishu SMTP (LOGIN, form test send, clearer errors) and
   customizable zh/en mail copy for welcome / verify / reset / change-email / reject.
 - **Polish** — bilingual UI (中文/English), PWA, light/dark/**system** theme,
@@ -131,7 +133,7 @@ imgli serve
 Pin a version or install location:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yixian-huang/imgli/main/scripts/install.sh | sh -s -- v0.9.14
+curl -fsSL https://raw.githubusercontent.com/yixian-huang/imgli/main/scripts/install.sh | sh -s -- v0.9.15
 PREFIX=/usr/local/bin curl -fsSL https://raw.githubusercontent.com/yixian-huang/imgli/main/scripts/install.sh | sh
 ```
 
@@ -147,7 +149,7 @@ docker run --rm -p 8686:8686 -v imgli-data:/data \
 # → http://localhost:8686  (first registered user becomes admin)
 ```
 
-Pin a release with `ghcr.io/yixian-huang/imgli:v0.9.14` (see
+Pin a release with `ghcr.io/yixian-huang/imgli:v0.9.15` (see
 [Releases](https://github.com/yixian-huang/imgli/releases)).
 
 ### Docker Compose
@@ -168,7 +170,7 @@ Backup / restore: [`docs/backup.md`](docs/backup.md).
 
 ```bash
 make build          # needs Go ≥ 1.26 and Node ≥ 24
-./imgli version     # git tag via ldflags, e.g. v0.9.14
+./imgli version     # git tag via ldflags, e.g. v0.9.15
 ./imgli serve       # → http://localhost:8686
 ```
 

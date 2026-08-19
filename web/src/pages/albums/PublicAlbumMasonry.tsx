@@ -3,6 +3,7 @@ import type { PublicAlbumImg } from '../../api/types'
 import { useT } from '../../i18n'
 import { copyText } from '../../lib/copy'
 import { Button } from '../../ui/Button'
+import { RetryImg } from '../../ui/RetryImg'
 import { EmptyState } from '../../ui/EmptyState'
 import { aspectStyle, sharePageURL } from './albumLinks'
 
@@ -67,7 +68,7 @@ export function PublicAlbumMasonry({
         {rows.map((r, i) => {
           const media = (
             <>
-              <img
+              <RetryImg
                 src={r.thumbnail_url}
                 alt=""
                 loading="lazy"

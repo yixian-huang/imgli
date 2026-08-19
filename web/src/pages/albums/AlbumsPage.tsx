@@ -8,6 +8,7 @@ import { formatDate } from '../../lib/format'
 import { useGlobal } from '../../store'
 import { Button } from '../../ui/Button'
 import { EmptyState } from '../../ui/EmptyState'
+import { RetryImg } from '../../ui/RetryImg'
 import { Modal } from '../../ui/Modal'
 import { PageHeader } from '../../shell/PageHeader'
 
@@ -82,7 +83,7 @@ export function AlbumsPage() {
               <div className="grid aspect-video grid-cols-[2fr_1fr] grid-rows-2 gap-px bg-border">
                 <div className="row-span-2 flex items-center justify-center overflow-hidden bg-soft">
                   {a.cover_key ? (
-                    <img className="block size-full object-cover" src={`/t/${a.cover_key}.jpg`} alt="" loading="lazy" />
+                    <RetryImg className="block size-full object-cover" src={`/t/${a.cover_key}.jpg`} alt="" loading="lazy" />
                   ) : (
                     <span className="font-mono text-2xs tracking-[0.08em] text-muted">COVER</span>
                   )}

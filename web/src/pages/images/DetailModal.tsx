@@ -18,6 +18,7 @@ import {
 import { generateAccessPassword } from '../../lib/password'
 import { useGlobal } from '../../store'
 import { InlineConfirm } from '../../ui/InlineConfirm'
+import { RetryImg } from '../../ui/RetryImg'
 import { Segmented } from '../../ui/Segmented'
 
 interface Props {
@@ -415,7 +416,7 @@ export function DetailModal({ items, focusKey, onClose, onNavigate }: Props) {
       >
         <div className="mx-auto mt-2 mb-0 h-1 w-9 flex-none rounded-[2px] bg-border md:hidden" />
         <div className="relative flex max-h-[22vh] min-h-[120px] flex-none flex-col items-center justify-center gap-2 overflow-hidden border-b border-border bg-soft md:max-h-none md:min-h-0 md:flex-[1.1] md:border-r md:border-b-0">
-          <img
+          <RetryImg
             className="max-h-[20vh] max-w-full object-contain md:max-h-[min(80vh,100%)]"
             src={base.links.url}
             alt={base.name}

@@ -6,6 +6,7 @@ import { PageHeader } from '../../../shell/PageHeader'
 import { useGlobal } from '../../../store'
 import { Button } from '../../../ui/Button'
 import { EmptyState } from '../../../ui/EmptyState'
+import { RetryImg } from '../../../ui/RetryImg'
 import { Tag } from '../../../ui/Tag'
 import { AdminQueryGate } from '../ui/AdminQueryGate'
 import { Pager } from '../ui/Pager'
@@ -102,7 +103,7 @@ export function ReviewPage() {
               <div className="mt-2 grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-4">
                 {items.map((it) => (
                   <div key={it.key} className="flex gap-3.5 rounded-sm border border-border bg-surface p-3">
-                    <img
+                    <RetryImg
                       className="h-[140px] w-[140px] flex-none rounded-sm bg-soft object-cover"
                       src={it.links.thumbnail_url}
                       alt={it.name}
