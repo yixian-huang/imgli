@@ -3,7 +3,16 @@
 > **Planning SSOT is internal** (`imgli/roadmap` in the project knowledge base).  
 > This file is a **public, de-sensitized mirror** for contributors. Prefer GitHub Issues + Milestones for execution.
 
-## Latest shipped — v0.9.14 · Lark/Feishu SMTP + mail copy
+## Latest shipped — v0.9.15 · MinIO/S3 first-load thumbs
+
+Release: https://github.com/yixian-huang/imgli/releases/tag/v0.9.15
+
+First `/t` after upload on MinIO/S3 no longer returns JSON 500 (HEAD fallback to
+GET; missing default thumb generated from the original). Image 5xx is SVG +
+`no-store`. SPA surfaces retry once. See
+[CHANGELOG](CHANGELOG.md#0915---2026-08-19).
+
+## Previous — v0.9.14 · Lark/Feishu SMTP + mail copy
 
 Release: https://github.com/yixian-huang/imgli/releases/tag/v0.9.14
 

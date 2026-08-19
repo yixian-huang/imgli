@@ -6,6 +6,7 @@ import { useT } from '../i18n'
 import { cn } from '../lib/cn'
 import { useGlobal } from '../store'
 import { BrandLockup } from '../ui/Brand'
+import { RetryImg } from '../ui/RetryImg'
 import { LangToggle } from '../ui/LangToggle'
 import { NavQuotaCluster } from '../ui/QuotaBar'
 
@@ -97,7 +98,7 @@ export function Nav({ user }: { user: User }) {
             onClick={() => setMenuOpen((v) => !v)}
           >
             {user.avatar_url && !imgFailed ? (
-              <img className="block h-full w-full rounded-full object-cover" src={user.avatar_url} alt="" onError={() => setImgFailed(true)} />
+              <RetryImg className="block h-full w-full rounded-full object-cover" src={user.avatar_url} alt="" onError={() => setImgFailed(true)} />
             ) : (
               (user.nickname || user.username).slice(0, 1)
             )}

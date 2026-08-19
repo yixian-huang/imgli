@@ -10,6 +10,7 @@ import { copyText } from '../../../lib/copy'
 import { formatBytes, formatDate } from '../../../lib/format'
 import { useGlobal } from '../../../store'
 import { Button } from '../../../ui/Button'
+import { RetryImg } from '../../../ui/RetryImg'
 import { InlineConfirm } from '../../../ui/InlineConfirm'
 import { Modal } from '../../../ui/Modal'
 
@@ -55,7 +56,7 @@ export function AdminImageDetail({ item, onClose }: { item: AdminImageItem | nul
     <Modal open={item !== null} onClose={onClose} width={560}>
       {item && (
         <div className="flex flex-col gap-3.5">
-          <img
+          <RetryImg
             className="max-h-80 w-full rounded-sm bg-soft object-contain"
             src={item.links.thumbnail_url}
             alt={item.name}

@@ -27,8 +27,9 @@ type mockS3 struct {
 	lastPath      string
 	lastContentLn int64 // 最近一次请求的 Content-Length(codex F1:验 *os.File 不走 chunked)
 	// forceStatus: 若非 0，对该 method 强制返回该状态码（用于 Exists 403 等）
-	forceStatus map[string]int
-	ignoreRange bool // codex F3:GET 无视 Range 恒返 200 全量(模拟不合规服务端)
+	forceStatus  map[string]int
+	ignoreRange  bool // codex F3:GET 无视 Range 恒返 200 全量(模拟不合规服务端)
+	headNoLength bool // HEAD 200 但不带 Content-Length（部分网关/MinIO 代理）
 }
 
 func newMockS3() *mockS3 {
@@ -102,7 +103,9 @@ func (m *mockS3) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.NotFound(w, r)
 			return
 		}
-		w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+		if !m.headNoLength {
+			w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+		}
 		w.WriteHeader(http.StatusOK)
 	case http.MethodDelete:
 		delete(m.objects, storeKey)
@@ -449,6 +452,80 @@ func TestS3RangeIgnoredBy200Errors(t *testing.T) {
 	buf := make([]byte, 10)
 	if _, err := rsc.Read(buf); err == nil {
 		t.Error("offset>0 收 200 应报错(防读错字节),got nil")
+	}
+}
+
+func TestS3OpenFallsBackToGETWhenHEADForbidden(t *testing.T) {
+	mock := newMockS3()
+	d := testDriver(t, mock, baseCfg("true"))
+	ctx := context.Background()
+	payload := []byte("minio-head-403")
+	if err := d.Put(ctx, "soon.png", bytes.NewReader(payload)); err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+	mock.forceStatus["HEAD"] = http.StatusForbidden
+	rsc, err := d.Open(ctx, "soon.png")
+	if err != nil {
+		t.Fatalf("HEAD 403 应回落 GET, err=%v", err)
+	}
+	defer rsc.Close()
+	got, err := io.ReadAll(rsc)
+	if err != nil {
+		t.Fatalf("ReadAll: %v", err)
+	}
+	if !bytes.Equal(got, payload) {
+		t.Errorf("body=%q want %q", got, payload)
+	}
+}
+
+func TestS3OpenFallsBackToGETWhenHEADOmitsContentLength(t *testing.T) {
+	mock := newMockS3()
+	mock.headNoLength = true
+	d := testDriver(t, mock, baseCfg("true"))
+	ctx := context.Background()
+	payload := []byte("no-cl")
+	if err := d.Put(ctx, "ncl.png", bytes.NewReader(payload)); err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+	rsc, err := d.Open(ctx, "ncl.png")
+	if err != nil {
+		t.Fatalf("HEAD 无 Content-Length 应回落 GET, err=%v", err)
+	}
+	defer rsc.Close()
+	got, err := io.ReadAll(rsc)
+	if err != nil {
+		t.Fatalf("ReadAll: %v", err)
+	}
+	if !bytes.Equal(got, payload) {
+		t.Errorf("body=%q want %q", got, payload)
+	}
+}
+
+func TestS3OpenFallsBackToGETWhenHEADUnavailable(t *testing.T) {
+	mock := newMockS3()
+	d := testDriver(t, mock, baseCfg("true"))
+	ctx := context.Background()
+	payload := []byte("head-503")
+	if err := d.Put(ctx, "w.png", bytes.NewReader(payload)); err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+	mock.forceStatus["HEAD"] = http.StatusServiceUnavailable
+	rsc, err := d.Open(ctx, "w.png")
+	if err != nil {
+		t.Fatalf("HEAD 503 应回落 GET, err=%v", err)
+	}
+	defer rsc.Close()
+	got, _ := io.ReadAll(rsc)
+	if !bytes.Equal(got, payload) {
+		t.Errorf("body=%q", got)
+	}
+}
+
+func TestS3OpenStillNotFoundWhenMissing(t *testing.T) {
+	d := testDriver(t, newMockS3(), baseCfg("true"))
+	_, err := d.Open(context.Background(), "nope.png")
+	if !errors.Is(err, storage.ErrNotFound) {
+		t.Fatalf("err=%v want ErrNotFound", err)
 	}
 }
 

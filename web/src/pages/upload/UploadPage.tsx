@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '../../api/queryKeys'
 import { useAlbums, useConfig, useQuota, useSession, useUserPolicies } from '../../api/hooks'
 import { useT } from '../../i18n'
 import { cn } from '../../lib/cn'
@@ -180,7 +181,11 @@ export function UploadPage() {
   // 每个完成项让配额失效刷新（导航容量条/警告条实时跟进）
   const doneCount = items.filter((i) => i.status === 'success' || i.status === 'instant').length
   useEffect(() => {
-    if (doneCount > 0) qc.invalidateQueries({ queryKey: ['quota'] })
+    if (doneCount > 0) {
+      qc.invalidateQueries({ queryKey: queryKeys.quota })
+      qc.invalidateQueries({ queryKey: queryKeys.imagesRoot })
+      qc.invalidateQueries({ queryKey: queryKeys.admin.imagesRoot })
+    }
   }, [doneCount, qc])
 
   const copyFmt = isGuest ? '' : (me?.preferences?.auto_copy_format ?? '')

@@ -17,6 +17,7 @@ import { useT } from '../../i18n'
 import { errorText } from '../../i18n/errorText'
 import { useGlobal } from '../../store'
 import { Button } from '../../ui/Button'
+import { RetryImg } from '../../ui/RetryImg'
 import { InlineConfirm } from '../../ui/InlineConfirm'
 import { Tag } from '../../ui/Tag'
 import { Toggle } from '../../ui/Toggle'
@@ -90,7 +91,7 @@ export function ProfileTab() {
         <div className={card}>
           <div className="mb-4 flex items-center gap-4">
             {user.avatar_url ? (
-              <img
+              <RetryImg
                 className="size-16 rounded-full border border-border object-cover"
                 src={user.avatar_url}
                 alt={t('settings.avatarAlt')}

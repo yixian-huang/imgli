@@ -4,8 +4,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/yixian-huang/imgli/internal/model"
+	"github.com/yixian-huang/imgli/internal/service/storagesvc"
 )
 
 // uploadAndGetKey 上传一张图返回其 key（复用 api_upload_test.go 的助手）。
@@ -56,6 +61,59 @@ func TestServeThumbnail(t *testing.T) {
 	}
 	if ct := rec.Header().Get("Content-Type"); ct != "image/jpeg" {
 		t.Errorf("缩略图 Content-Type=%q", ct)
+	}
+}
+
+func TestServeThumbnailGeneratesWhenMissing(t *testing.T) {
+	s := newUploadTestServer(t)
+	tok := uploadToken(t, s)
+	key := uploadAndGetKey(t, s, tok)
+
+	var img model.Image
+	if err := s.opts.DB.Where("key = ?", key).First(&img).Error; err != nil {
+		t.Fatal(err)
+	}
+	var file model.File
+	if err := s.opts.DB.First(&file, img.FileID).Error; err != nil {
+		t.Fatal(err)
+	}
+	root := filepath.Join(s.opts.Cfg.DataDir, "uploads")
+	for _, tk := range storagesvc.ThumbKeyCandidates(file.Surface, file.Hash) {
+		_ = os.Remove(filepath.Join(root, filepath.FromSlash(tk)))
+	}
+
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, httptest.NewRequest("GET", "/t/"+key+".jpg", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("缺省 /t 应从原图现场生成, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if ct := rec.Header().Get("Content-Type"); ct != "image/jpeg" && ct != "image/webp" {
+		t.Errorf("Content-Type=%q", ct)
+	}
+	if rec.Body.Len() < 32 {
+		t.Errorf("生成缩略图过短: %d", rec.Body.Len())
+	}
+}
+
+func TestServeThumbnailDriverErrorIsSVG(t *testing.T) {
+	s := newUploadTestServer(t)
+	tok := uploadToken(t, s)
+	key := uploadAndGetKey(t, s, tok)
+	if err := s.opts.DB.Model(&model.StoragePolicy{}).Where("id = 1").Update("driver", "nope").Error; err != nil {
+		t.Fatal(err)
+	}
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/t/"+key+".jpg", nil)
+	req.Header.Set("Accept", "image/avif,image/webp,image/apng,image/*,*/*;q=0.8")
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("存储不可用应 500, got %d %s", rec.Code, rec.Body.String())
+	}
+	if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "image/svg") {
+		t.Errorf("图片 500 应为 SVG, got %q body=%s", ct, rec.Body.String())
+	}
+	if cc := rec.Header().Get("Cache-Control"); !strings.Contains(cc, "no-store") {
+		t.Errorf("500 占位不应缓存, Cache-Control=%q", cc)
 	}
 }
 
@@ -193,6 +251,9 @@ func TestServePlaceholderIsImageForImageRequest(t *testing.T) {
 	s.Handler().ServeHTTP(rec, req)
 	if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "image/svg") {
 		t.Errorf("图片请求的占位应为 SVG 图片, got %q", ct)
+	}
+	if cc := rec.Header().Get("Cache-Control"); !strings.Contains(cc, "no-store") {
+		t.Errorf("占位图不应被缓存, Cache-Control=%q", cc)
 	}
 }
 

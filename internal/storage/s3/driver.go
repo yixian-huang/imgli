@@ -1,6 +1,7 @@
 package s3
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -16,11 +17,11 @@ import (
 
 // Driver 是 S3 兼容存储驱动（手写 SigV4，零 SDK）。
 type Driver struct {
-	endpoint  string
-	region    string
-	bucket    string
-	accessKey string
-	secretKey string
+	endpoint      string
+	region        string
+	bucket        string
+	accessKey     string
+	secretKey     string
 	pathStyle     bool
 	prefix        string
 	presignScheme string // 预签名目标域的 scheme(https/http)
@@ -243,22 +244,50 @@ func (d *Driver) Put(ctx context.Context, key string, r io.Reader) error {
 func (d *Driver) Open(ctx context.Context, key string) (io.ReadSeekCloser, error) {
 	resp, err := d.do(ctx, "HEAD", key, nil, "UNSIGNED-PAYLOAD", -1, nil)
 	if err != nil {
-		return nil, err
+		// 部分 MinIO/网关 HEAD 直接断连；回落 GET。
+		return d.openViaGET(ctx, key)
 	}
 	resp.Body.Close()
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, storage.ErrNotFound
 	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("s3: HEAD %d", resp.StatusCode)
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		size, perr := strconv.ParseInt(resp.Header.Get("Content-Length"), 10, 64)
+		if perr == nil && size >= 0 {
+			return &rangeReadSeekCloser{d: d, ctx: ctx, key: key, size: size, offset: 0}, nil
+		}
 	}
-	size, err := strconv.ParseInt(resp.Header.Get("Content-Length"), 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("s3: Content-Length: %w", err)
-	}
-	// 保存 Open 的 ctx 供惰性 Range GET 继承取消/deadline(codex 评审 F4)。
-	return &rangeReadSeekCloser{d: d, ctx: ctx, key: key, size: size, offset: 0}, nil
+	// HEAD 403/5xx 或无 Content-Length：MinIO/网关刚 PUT 完常见；改 GET。
+	return d.openViaGET(ctx, key)
 }
+
+const maxOpenGETFallback = 64 << 20 // 64MiB：HEAD 不可用时整对象入内存，超限仍报错
+
+func (d *Driver) openViaGET(ctx context.Context, key string) (io.ReadSeekCloser, error) {
+	resp, err := d.do(ctx, "GET", key, nil, "UNSIGNED-PAYLOAD", -1, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, storage.ErrNotFound
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("s3: GET %d", resp.StatusCode)
+	}
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxOpenGETFallback+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > maxOpenGETFallback {
+		return nil, fmt.Errorf("s3: GET fallback 超过 %d 字节", maxOpenGETFallback)
+	}
+	return byteRSC{bytes.NewReader(data)}, nil
+}
+
+type byteRSC struct{ *bytes.Reader }
+
+func (byteRSC) Close() error { return nil }
 
 func (d *Driver) Delete(ctx context.Context, key string) error {
 	resp, err := d.do(ctx, "DELETE", key, nil, "UNSIGNED-PAYLOAD", -1, nil)

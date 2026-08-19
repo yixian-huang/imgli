@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import type { DiscoverRow } from '../../api/types'
 import { useT } from '../../i18n'
 import { copyText } from '../../lib/copy'
+import { RetryImg } from '../../ui/RetryImg'
 
 interface Props {
   row: DiscoverRow | null
@@ -48,7 +49,7 @@ export function Lightbox({ row, onClose }: Props) {
         >
           ×
         </button>
-        <img
+        <RetryImg
           className="block max-h-[78vh] max-w-full rounded bg-black/20 object-contain sm:max-h-[90vh]"
           src={`/i/${row.key}`}
           alt={row.name}

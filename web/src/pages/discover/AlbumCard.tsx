@@ -1,6 +1,7 @@
 import { Link } from 'react-router'
 import type { PublicAlbumCard } from '../../api/types'
 import { useT } from '../../i18n'
+import { RetryImg } from '../../ui/RetryImg'
 
 type Props = { card: PublicAlbumCard }
 
@@ -19,7 +20,7 @@ export function AlbumCard({ card }: Props) {
     >
       <div className="relative aspect-[4/3] bg-soft">
         {src ? (
-          <img src={src} alt="" className="absolute inset-0 size-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
+          <RetryImg src={src} alt="" className="absolute inset-0 size-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
         ) : null}
       </div>
       <div className="px-3 py-2.5">

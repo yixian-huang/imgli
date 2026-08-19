@@ -4,6 +4,7 @@ import type { PublicAlbumImg } from '../../api/types'
 import { useT } from '../../i18n'
 import { cn } from '../../lib/cn'
 import { copyText } from '../../lib/copy'
+import { RetryImg } from '../../ui/RetryImg'
 import { sharePageURL } from './albumLinks'
 import { filmstripWindow } from './filmstripWindow'
 import {
@@ -225,7 +226,7 @@ export function AlbumImmersive({
       onMouseMove={bumpChrome}
     >
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
-        <img
+        <RetryImg
           key={active.key + '-bg'}
           src={active.thumbnail_url}
           alt=""
@@ -255,7 +256,7 @@ export function AlbumImmersive({
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
         >
-          <img
+          <RetryImg
             key={active.key}
             src={active.url}
             alt={active.name}
@@ -384,7 +385,7 @@ export function AlbumImmersive({
                   )}
                   onClick={() => onSelectIndex(i)}
                 >
-                  <img
+                  <RetryImg
                     src={img.thumbnail_url}
                     alt=""
                     className="size-full object-cover"

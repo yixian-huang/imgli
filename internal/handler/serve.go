@@ -180,7 +180,7 @@ func (h *ServeHandlers) writeDeny(w http.ResponseWriter, r *http.Request, d *ser
 	case servesvc.DenyBandwidth:
 		h.placeholder(w, r, http.StatusTooManyRequests, "BANDWIDTH EXCEEDED")
 	case servesvc.DenyInternal:
-		Fail(w, http.StatusInternalServerError, CodeInternal, "服务器内部错误")
+		h.imageFail(w, r, http.StatusInternalServerError, "READ ERROR", CodeInternal, "服务器内部错误")
 	default:
 		h.placeholder(w, r, http.StatusNotFound, "NOT FOUND")
 	}
@@ -317,7 +317,7 @@ func (h *ServeHandlers) Thumbnail(w http.ResponseWriter, r *http.Request) {
 func (h *ServeHandlers) streamWidthThumb(w http.ResponseWriter, r *http.Request, file *model.File, policy *model.StoragePolicy, width int, public bool) (int64, bool) {
 	d, err := h.D.Res.Driver(policy)
 	if err != nil {
-		Fail(w, http.StatusInternalServerError, CodeInternal, "存储不可用")
+		h.imageFail(w, r, http.StatusInternalServerError, "READ ERROR", CodeInternal, "存储不可用")
 		return 0, false
 	}
 	etag := `"` + file.Hash + "-w" + strconv.Itoa(width) + "-t" + storagesvc.ThumbGen + `"`
@@ -390,7 +390,7 @@ func (h *ServeHandlers) streamWidthThumb(w http.ResponseWriter, r *http.Request,
 				h.placeholder(w, r, http.StatusNotFound, "NOT FOUND")
 				return 0, false
 			}
-			Fail(w, http.StatusInternalServerError, CodeInternal, "读取失败")
+			h.imageFail(w, r, http.StatusInternalServerError, "READ ERROR", CodeInternal, "读取失败")
 			return 0, false
 		}
 		rc, err = d.Open(r.Context(), key)
@@ -400,7 +400,7 @@ func (h *ServeHandlers) streamWidthThumb(w http.ResponseWriter, r *http.Request,
 			h.placeholder(w, r, http.StatusNotFound, "NOT FOUND")
 			return 0, false
 		}
-		Fail(w, http.StatusInternalServerError, CodeInternal, "读取失败")
+		h.imageFail(w, r, http.StatusInternalServerError, "READ ERROR", CodeInternal, "读取失败")
 		return 0, false
 	}
 	if public && h.D.Cache != nil {
@@ -408,7 +408,7 @@ func (h *ServeHandlers) streamWidthThumb(w http.ResponseWriter, r *http.Request,
 		var ferr error
 		rc, _, n, ferr = h.fillServeCache(ckey, rc, "image/jpeg")
 		if ferr != nil {
-			Fail(w, http.StatusInternalServerError, CodeInternal, "读取失败")
+			h.imageFail(w, r, http.StatusInternalServerError, "READ ERROR", CodeInternal, "读取失败")
 			return 0, false
 		}
 		defer rc.Close()
@@ -456,7 +456,7 @@ func (h *ServeHandlers) isOwner(r *http.Request, img *model.Image) bool {
 // 遗留无前缀路径。返回 reader 与 Content-Type;全未命中返回 ErrNotFound,中间非
 // NotFound 错误原样上抛。
 func openThumb(ctx context.Context, d storage.Driver, surface, hash string) (io.ReadSeekCloser, string, error) {
-	var last error
+	var lastMiss, lastHard error
 	for _, key := range storagesvc.ThumbKeyCandidates(surface, hash) {
 		rc, err := d.Open(ctx, key)
 		if err == nil {
@@ -466,15 +466,19 @@ func openThumb(ctx context.Context, d storage.Driver, surface, hash string) (io.
 			}
 			return rc, ctype, nil
 		}
-		if !errors.Is(err, storage.ErrNotFound) {
-			return nil, "", err
+		if errors.Is(err, storage.ErrNotFound) {
+			lastMiss = err
+			continue
 		}
-		last = err
+		lastHard = err
 	}
-	if last == nil {
-		last = storage.ErrNotFound
+	if lastMiss != nil {
+		return nil, "", lastMiss
 	}
-	return nil, "", last
+	if lastHard != nil {
+		return nil, "", lastHard
+	}
+	return nil, "", storage.ErrNotFound
 }
 
 type byteRSC struct{ *bytes.Reader }
@@ -569,7 +573,7 @@ func (h *ServeHandlers) streamFile(w http.ResponseWriter, r *http.Request, file 
 	if rc == nil {
 		d, err := h.D.Res.Driver(policy)
 		if err != nil {
-			Fail(w, http.StatusInternalServerError, CodeInternal, "存储不可用")
+			h.imageFail(w, r, http.StatusInternalServerError, "READ ERROR", CodeInternal, "存储不可用")
 			return 0, false
 		}
 		if thumb {
@@ -580,18 +584,26 @@ func (h *ServeHandlers) streamFile(w http.ResponseWriter, r *http.Request, file 
 			rc, err = d.Open(r.Context(), file.Path)
 		}
 		if err != nil {
-			if errors.Is(err, storage.ErrNotFound) {
+			if thumb && errors.Is(err, storage.ErrNotFound) {
+				if grc, gct, gerr := h.ensureDefaultThumb(r.Context(), d, file); gerr == nil {
+					rc, ctype = grc, gct
+				} else {
+					h.placeholder(w, r, http.StatusNotFound, "NOT FOUND")
+					return 0, false
+				}
+			} else if errors.Is(err, storage.ErrNotFound) {
 				h.placeholder(w, r, http.StatusNotFound, "NOT FOUND")
 				return 0, false
+			} else {
+				h.imageFail(w, r, http.StatusInternalServerError, "READ ERROR", CodeInternal, "读取失败")
+				return 0, false
 			}
-			Fail(w, http.StatusInternalServerError, CodeInternal, "读取失败")
-			return 0, false
 		}
-		if public && h.D.Cache != nil && (thumb || file.Size <= h.D.Cache.MaxFileBytes()) {
+		if rc != nil && public && h.D.Cache != nil && (thumb || file.Size <= h.D.Cache.MaxFileBytes()) {
 			var n int64
 			rc, ctype, n, err = h.fillServeCache(ckey, rc, ctype)
 			if err != nil {
-				Fail(w, http.StatusInternalServerError, CodeInternal, "读取失败")
+				h.imageFail(w, r, http.StatusInternalServerError, "READ ERROR", CodeInternal, "读取失败")
 				return 0, false
 			}
 			if thumb && n == 0 {
@@ -629,6 +641,66 @@ func (h *ServeHandlers) streamFile(w http.ResponseWriter, r *http.Request, file 
 	return meter, true
 }
 
+// imageFail 图片 URL 的错误：默认 SVG + no-store，避免 <img> 吃到 JSON 500
+// 显示裂图，也避免反代把 5xx 当 jpg 缓存。显式 Accept JSON 仍走信封。
+func (h *ServeHandlers) imageFail(w http.ResponseWriter, r *http.Request, status int, label, code, msg string) {
+	if strings.Contains(r.Header.Get("Accept"), "application/json") {
+		Fail(w, status, code, msg)
+		return
+	}
+	h.placeholder(w, r, status, label)
+}
+
+// ensureDefaultThumb 默认 /t 未命中时从原图现场生成（与上传 ThumbMaxEdge=400 对齐）。
+// Put 失败仍返回内存中的图，避免 MinIO 刚写入不可见或 thumb Put 失败时第一次 /t 裂图。
+func (h *ServeHandlers) ensureDefaultThumb(ctx context.Context, d storage.Driver, file *model.File) (io.ReadSeekCloser, string, error) {
+	sfKey := file.Hash + "|t|" + file.Surface
+	v, genErr, _ := h.thumbSF.Do(sfKey, func() (any, error) {
+		if file.Width > 0 && file.Height > 0 {
+			if int64(file.Width)*int64(file.Height) > int64(imaging.MaxDecodePixels) {
+				return nil, errThumbGen
+			}
+		}
+		if file.Size > int64(imaging.MaxThumbSourceBytes) {
+			return nil, errThumbGen
+		}
+		src, oerr := d.Open(ctx, file.Path)
+		if oerr != nil {
+			return nil, oerr
+		}
+		raw, rerr := io.ReadAll(io.LimitReader(src, int64(imaging.MaxThumbSourceBytes)+1))
+		_ = src.Close()
+		if rerr != nil {
+			return nil, rerr
+		}
+		if len(raw) > imaging.MaxThumbSourceBytes {
+			return nil, errThumbGen
+		}
+		out, terr := h.proc().Thumbnail(bytes.NewReader(raw), 400)
+		if terr != nil {
+			return nil, errThumbGen
+		}
+		thumbKey := storagesvc.ThumbKey(file.Surface, file.Hash)
+		if h.proc().ThumbExt() == "webp" {
+			thumbKey = storagesvc.ThumbKeyWebP(file.Surface, file.Hash)
+		}
+		_ = d.Put(ctx, thumbKey, bytes.NewReader(out))
+		return out, nil
+	})
+	if genErr != nil {
+		return nil, "", genErr
+	}
+	out, _ := v.([]byte)
+	if len(out) == 0 {
+		return nil, "", errThumbGen
+	}
+	ctype := "image/jpeg"
+	if h.proc().ThumbExt() == "webp" {
+		ctype = "image/webp"
+	}
+	return byteRSC{bytes.NewReader(out)}, ctype, nil
+}
+
 // placeholder 返回占位。默认返回 SVG 占位图，仅当调用方显式
 // Accept: application/json 时返回信封 JSON。始终带正确状态码。
 func (h *ServeHandlers) placeholder(w http.ResponseWriter, r *http.Request, status int, label string) {
@@ -636,6 +708,7 @@ func (h *ServeHandlers) placeholder(w http.ResponseWriter, r *http.Request, stat
 	// 仅当调用方显式 Accept: application/json 时返回恒定错误信封。
 	if !strings.Contains(r.Header.Get("Accept"), "application/json") {
 		w.Header().Set("Content-Type", "image/svg+xml; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
 		w.WriteHeader(status)
 		w.Write([]byte(placeholderSVG(label)))
 		return

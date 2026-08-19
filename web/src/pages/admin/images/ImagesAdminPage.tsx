@@ -18,6 +18,7 @@ import { useGlobal } from '../../../store'
 import { ArmedButton } from '../../../ui/ArmedButton'
 import { Button } from '../../../ui/Button'
 import { EmptyState } from '../../../ui/EmptyState'
+import { RetryImg } from '../../../ui/RetryImg'
 import { AdminFilters, AdminSelect } from '../ui/adminChrome'
 import { AdminQueryGate } from '../ui/AdminQueryGate'
 import { Pager } from '../ui/Pager'
@@ -258,7 +259,7 @@ export function ImagesAdminPage() {
                       onClick={() => setDetail(it)}
                     >
                       <div className="relative aspect-square bg-soft">
-                        <img className="block h-full w-full object-cover" src={it.links.thumbnail_url} alt={it.name} loading="lazy" />
+                        <RetryImg className="block h-full w-full object-cover" src={it.links.thumbnail_url} alt={it.name} loading="lazy" />
                         <label
                           className="absolute top-2 left-2 z-[2] flex h-[22px] w-[22px] cursor-pointer items-center justify-center rounded-sm bg-black/35"
                           onClick={(e) => e.stopPropagation()}

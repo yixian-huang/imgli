@@ -2,6 +2,7 @@ import { Link } from 'react-router'
 import type { PublicAlbumImg, PublicAlbumMeta } from '../../api/types'
 import { useT } from '../../i18n'
 import { copyText } from '../../lib/copy'
+import { RetryImg } from '../../ui/RetryImg'
 import { albumPageURL } from './albumLinks'
 
 type Props = {
@@ -25,7 +26,7 @@ export function PublicAlbumHero({ meta, cover, coverIndex, loading, onEnterImmer
         data-testid="album-hero"
       >
         <div className="relative aspect-[16/9] max-h-[min(52vh,480px)] w-full min-h-[220px] sm:aspect-[21/9]">
-          <img src={cover.url} alt="" className="absolute inset-0 size-full object-cover" />
+          <RetryImg src={cover.url} alt="" className="absolute inset-0 size-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-black/10" />
           <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-end justify-between gap-4 p-5 sm:p-7">
             <div className="min-w-0 text-white">

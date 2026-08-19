@@ -7,6 +7,7 @@ import { copyText } from '../../lib/copy'
 import { formatBytes } from '../../lib/format'
 import { BrandLockup } from '../../ui/Brand'
 import { Button } from '../../ui/Button'
+import { RetryImg } from '../../ui/RetryImg'
 import { Input } from '../../ui/Input'
 import { LangToggle } from '../../ui/LangToggle'
 import { ShareBrandFooter } from '../../ui/ShareBrandFooter'
@@ -116,7 +117,7 @@ export function SharePage() {
         {data && !needPw && (
           <div className="grid grid-cols-[1.2fr_1fr] gap-6 overflow-hidden rounded border border-border bg-surface max-md:grid-cols-1">
             <div className="flex min-h-[280px] items-center justify-center bg-soft p-4 max-md:min-h-[200px]">
-              <img
+              <RetryImg
                 className="max-h-[min(70vh,560px)] max-w-full rounded-[2px] object-contain"
                 src={data.links.url}
                 alt={data.name}
