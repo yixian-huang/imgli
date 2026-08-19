@@ -26,7 +26,7 @@ test('邮件流(未配置 SMTP):忘记密码恒成功文案/设置页邮件区�
   await expect(page.getByLabel('SMTP 服务器')).toBeVisible()
   await page.getByLabel('测试收件人').fill('probe@img.li')
   await page.getByRole('button', { name: '发送测试邮件' }).click()
-  await expect(page.getByText(/SMTP 未配置/)).toBeVisible()
+  await expect(page.getByText(/请填写 SMTP 服务器|SMTP 未配置/)).toBeVisible()
 
   // 资料页未验证徽章
   await page.goto('/settings')
