@@ -1792,10 +1792,12 @@ func TestAdminGateMatrix(t *testing.T) {
 		{"GET", "/api/v1/admin/settings", ""},
 		{"PUT", "/api/v1/admin/settings", `{"site_name":"x"}`},
 		{"POST", "/api/v1/admin/settings/smtp/test", `{"to":"a@b.c"}`},
+		{"POST", "/api/v1/admin/settings/mail/preview", `{"kind":"welcome","lang":"zh"}`},
+		{"POST", "/api/v1/admin/settings/mail/test", `{"to":"a@b.c","kind":"welcome","lang":"zh"}`},
 		{"GET", "/api/v1/admin/logs", ""},
 	}
-	if len(routes) != 24 {
-		t.Fatalf("路由清单应为 24 条（对照 server.go mountAPI 的 /admin Route 注册）, got %d", len(routes))
+	if len(routes) != 26 {
+		t.Fatalf("路由清单应为 26 条（对照 server.go mountAPI 的 /admin Route 注册）, got %d", len(routes))
 	}
 
 	s, _, user := adminTestServer(t)
@@ -2001,6 +2003,57 @@ func TestAdminSMTPTestEndpoint(t *testing.T) {
 	rec, _ = doJSON(t, s, "POST", "/api/v1/admin/settings/smtp/test", `{"to":"not-email"}`, []*http.Cookie{admin})
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("to 非邮箱 = %d, want 400", rec.Code)
+	}
+
+	// 覆盖配置带掩码密码但库中身份不同 → 要求重输，不能拿旧密码打到新用户名
+	rec, _ = doJSON(t, s, "POST", "/api/v1/admin/settings/smtp/test",
+		`{"to":"a@b.c","smtp":{"host":"smtp.larksuite.com","port":465,"username":"noreply@qqqu.de","password":"****pwxx","from":"noreply@qqqu.de","encryption":"ssl"}}`,
+		[]*http.Cookie{admin})
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("掩码+新身份 test = %d, want 400: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "请重新输入密码") {
+		t.Errorf("应提示重输密码: %s", rec.Body.String())
+	}
+
+	// 覆盖配置但 host 空：测发信用表单值，应提示填写服务器，而不是「请先保存」
+	rec, _ = doJSON(t, s, "POST", "/api/v1/admin/settings/smtp/test",
+		`{"to":"a@b.c","smtp":{"host":"","port":587,"username":"","password":"","from":"","encryption":"starttls"}}`,
+		[]*http.Cookie{admin})
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("空 host 覆盖 = %d, want 400: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "请填写 SMTP 服务器") {
+		t.Errorf("空 host 应提示填写服务器: %s", rec.Body.String())
+	}
+}
+
+func TestAdminMailPreviewEndpoint(t *testing.T) {
+	s, admin, user := adminTestServer(t)
+	rec, _ := doJSON(t, s, "POST", "/api/v1/admin/settings/mail/preview",
+		`{"kind":"welcome","lang":"zh"}`, []*http.Cookie{user})
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("非 admin preview = %d, want 403", rec.Code)
+	}
+	rec, e := doJSON(t, s, "POST", "/api/v1/admin/settings/mail/preview",
+		`{"kind":"welcome","lang":"zh"}`, []*http.Cookie{admin})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("preview = %d %s", rec.Code, rec.Body.String())
+	}
+	var data struct {
+		Subject string `json:"subject"`
+		HTML    string `json:"html"`
+	}
+	if err := json.Unmarshal(e.Data, &data); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(data.Subject, "欢迎使用") || !strings.Contains(data.HTML, "打开设置") {
+		t.Errorf("内置欢迎信: %+v", data)
+	}
+	rec, _ = doJSON(t, s, "POST", "/api/v1/admin/settings/mail/preview",
+		`{"kind":"nope","lang":"zh"}`, []*http.Cookie{admin})
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("坏 kind = %d", rec.Code)
 	}
 }
 

@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
+import { useGlobal } from '../../../store'
 import { SettingsPage } from './SettingsPage'
 
 function jsonRes(body: unknown, status = 200): Response {
@@ -33,6 +34,17 @@ const SETTINGS = {
     },
   },
   smtp: { host: '', port: 587, username: '', password: '', from: '', encryption: 'starttls' },
+  mail_templates: {},
+  mail_template_defaults: {
+    welcome: {
+      subject: { zh: '欢迎使用 {{site_name}}', en: 'Welcome to {{site_name}}' },
+      body: { zh: '欢迎正文', en: 'Welcome body' },
+    },
+    verify: { subject: { zh: '', en: '' }, body: { zh: '', en: '' } },
+    reset: { subject: { zh: '', en: '' }, body: { zh: '', en: '' } },
+    change_email: { subject: { zh: '', en: '' }, body: { zh: '', en: '' } },
+    reject: { subject: { zh: '', en: '' }, body: { zh: '', en: '' } },
+  },
   hotlink: { enabled: false, allowed_domains: [], allow_empty_referer: true },
   processing: {
     text_watermark: { enabled: false, text: '', position: 'br', opacity: 0.35, size_ratio: 0.05 },
@@ -47,11 +59,14 @@ const SETTINGS = {
 }
 
 let putBody: Record<string, unknown> | null = null
-function mockBackend() {
+let testBody: Record<string, unknown> | null = null
+function mockBackend(settings: typeof SETTINGS = SETTINGS) {
   putBody = null
+  testBody = null
   vi.stubGlobal('fetch', vi.fn((url: RequestInfo | URL, init?: RequestInit) => {
     const u = String(url)
     if (u.includes('/admin/settings/smtp/test') && init?.method === 'POST') {
+      testBody = JSON.parse(String(init.body))
       return Promise.resolve(jsonRes(env({})))
     }
     if (u.includes('/admin/settings/moderation/test') && init?.method === 'POST') {
@@ -59,9 +74,9 @@ function mockBackend() {
     }
     if (u.includes('/admin/settings') && init?.method === 'PUT') {
       putBody = JSON.parse(String(init.body))
-      return Promise.resolve(jsonRes(env({ ...SETTINGS, ...(putBody as object) })))
+      return Promise.resolve(jsonRes(env({ ...settings, ...(putBody as object) })))
     }
-    if (u.includes('/admin/settings')) return Promise.resolve(jsonRes(env(SETTINGS)))
+    if (u.includes('/admin/settings')) return Promise.resolve(jsonRes(env(settings)))
     return Promise.resolve(jsonRes(env(null)))
   }))
 }
@@ -82,7 +97,10 @@ async function openTab(name: string) {
   await userEvent.click(screen.getByRole('button', { name, pressed: false }))
 }
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.unstubAllGlobals()
+  useGlobal.setState({ toasts: [] })
+})
 
 it('加载回显:站点名、打码 key、阈值', async () => {
   mockBackend()
@@ -269,6 +287,40 @@ it('API Key 聚焦时全选', async () => {
   expect(apiKeyInput.selectionEnd).toBe(maskedValue.length)
 })
 
+it('点 SSL 时默认 587 端口改为 465', async () => {
+  mockBackend()
+  renderPage()
+  await screen.findByLabelText('站点名称')
+  await openTab('邮件 SMTP')
+  expect(screen.getByLabelText('端口')).toHaveValue(587)
+  await userEvent.click(screen.getByRole('button', { name: 'SSL' }))
+  expect(screen.getByLabelText('端口')).toHaveValue(465)
+})
+
+it('用户名不像邮箱时给出行内警告', async () => {
+  mockBackend()
+  renderPage()
+  await screen.findByLabelText('站点名称')
+  await openTab('邮件 SMTP')
+  await userEvent.type(screen.getByLabelText('用户名'), 'user5')
+  expect(screen.getByText(/用户名是完整邮箱/)).toBeInTheDocument()
+})
+
+it('邮件文案:填入默认后保存带 mail_templates', async () => {
+  mockBackend()
+  renderPage()
+  await screen.findByLabelText('站点名称')
+  await openTab('邮件 SMTP')
+  expect(screen.getByRole('heading', { name: '邮件文案' })).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: '填入默认' }))
+  const zhSubject = screen.getByLabelText(/主题 · 中文/) as HTMLInputElement
+  expect(zhSubject.value).toContain('{{site_name}}')
+  await userEvent.click(screen.getByRole('button', { name: '保存设置' }))
+  await waitFor(() => expect(putBody).toBeTruthy())
+  const tpl = (putBody as { mail_templates: { welcome: { subject: { zh: string } } } }).mail_templates
+  expect(tpl.welcome.subject.zh).toContain('{{site_name}}')
+})
+
 it('填写 SMTP 并保存:PUT 带 smtp 五键', async () => {
   mockBackend()
   renderPage()
@@ -284,14 +336,105 @@ it('填写 SMTP 并保存:PUT 带 smtp 五键', async () => {
   })
 })
 
-it('发送测试邮件:调 test 端点并显示行内结果', async () => {
+it('发送测试邮件:调 test 端点并带上当前表单 smtp', async () => {
+  mockBackend()
+  renderPage()
+  await screen.findByLabelText('站点名称')
+  await openTab('邮件 SMTP')
+  await userEvent.type(screen.getByLabelText('SMTP 服务器'), 'smtp.larksuite.com')
+  await userEvent.type(screen.getByLabelText('用户名'), 'noreply@qqqu.de')
+  await userEvent.type(screen.getByLabelText('SMTP 密码'), 'imap-pw')
+  await userEvent.type(screen.getByLabelText('发件人'), 'noreply@qqqu.de')
+  await userEvent.click(screen.getByRole('button', { name: 'SSL' }))
+  await userEvent.type(screen.getByLabelText('测试收件人'), 'me@img.li')
+  await userEvent.click(screen.getByRole('button', { name: '发送测试邮件' }))
+  expect(await screen.findByText('已发送,请查收')).toBeInTheDocument()
+  expect(testBody).toMatchObject({
+    to: 'me@img.li',
+    smtp: {
+      host: 'smtp.larksuite.com',
+      port: 465,
+      username: 'noreply@qqqu.de',
+      password: 'imap-pw',
+      from: 'noreply@qqqu.de',
+      encryption: 'ssl',
+    },
+  })
+})
+
+it('测试收件人留空则发给件人', async () => {
+  mockBackend()
+  renderPage()
+  await screen.findByLabelText('站点名称')
+  await openTab('邮件 SMTP')
+  await userEvent.type(screen.getByLabelText('SMTP 服务器'), 'smtp.larksuite.com')
+  await userEvent.type(screen.getByLabelText('用户名'), 'noreply@qqqu.de')
+  await userEvent.type(screen.getByLabelText('SMTP 密码'), 'imap-pw')
+  await userEvent.type(screen.getByLabelText('发件人'), 'noreply@qqqu.de')
+  await userEvent.click(screen.getByRole('button', { name: '发送测试邮件' }))
+  expect(await screen.findByText('已发送,请查收')).toBeInTheDocument()
+  expect(testBody).toMatchObject({ to: 'noreply@qqqu.de' })
+})
+
+it('未填服务器就测发信:行内提示填写服务器', async () => {
   mockBackend()
   renderPage()
   await screen.findByLabelText('站点名称')
   await openTab('邮件 SMTP')
   await userEvent.type(screen.getByLabelText('测试收件人'), 'me@img.li')
   await userEvent.click(screen.getByRole('button', { name: '发送测试邮件' }))
-  expect(await screen.findByText('已发送,请查收')).toBeInTheDocument()
+  expect(await screen.findByText('请填写 SMTP 服务器')).toBeInTheDocument()
+  expect(testBody).toBeNull()
+})
+
+it('改 SMTP 用户名后掩码密码清空；不重输则拒绝保存', async () => {
+  mockBackend({
+    ...SETTINGS,
+    smtp: {
+      host: 'smtp.larksuite.com',
+      port: 465,
+      username: '',
+      password: '****wxyz',
+      from: 'noreply@qqqu.de',
+      encryption: 'ssl',
+    },
+  })
+  renderPage()
+  await screen.findByLabelText('站点名称')
+  await openTab('邮件 SMTP')
+  const user = screen.getByLabelText('用户名')
+  const pw = screen.getByLabelText('SMTP 密码') as HTMLInputElement
+  expect(pw.value).toBe('****wxyz')
+  await userEvent.type(user, 'noreply@qqqu.de')
+  expect(pw.value).toBe('')
+  await userEvent.click(screen.getByRole('button', { name: '保存设置' }))
+  expect(putBody).toBeNull()
+  expect(useGlobal.getState().toasts.some((x) => x.message.includes('请重新输入密码'))).toBe(true)
+})
+
+it('改 SMTP 用户名并重输密码后可保存', async () => {
+  mockBackend({
+    ...SETTINGS,
+    smtp: {
+      host: 'smtp.larksuite.com',
+      port: 465,
+      username: '',
+      password: '****wxyz',
+      from: 'noreply@qqqu.de',
+      encryption: 'ssl',
+    },
+  })
+  renderPage()
+  await screen.findByLabelText('站点名称')
+  await openTab('邮件 SMTP')
+  await userEvent.type(screen.getByLabelText('用户名'), 'noreply@qqqu.de')
+  await userEvent.type(screen.getByLabelText('SMTP 密码'), 'imap-smtp-pw')
+  await userEvent.click(screen.getByRole('button', { name: '保存设置' }))
+  await waitFor(() => expect(putBody).toBeTruthy())
+  expect((putBody as { smtp: { username: string; password: string } }).smtp).toMatchObject({
+    username: 'noreply@qqqu.de',
+    password: 'imap-smtp-pw',
+  })
 })
 
 it('防盗链区块:渲染三控件', async () => {

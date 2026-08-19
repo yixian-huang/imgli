@@ -141,11 +141,11 @@ func TestPutSettingsThemeAppearance(t *testing.T) {
 	}
 
 	if err := svc.PutSettings(map[string]json.RawMessage{
-		"theme_accent":        rawJSON(t, "#3B82F6"),
-		"theme_bg_color":      rawJSON(t, "#F0F4F8"),
-		"theme_bg_image_url":  rawJSON(t, "https://cdn.example.com/bg.jpg"),
-		"theme_bg_dim":        rawJSON(t, 0.5),
-		"theme_glass":         rawJSON(t, 0.6),
+		"theme_accent":       rawJSON(t, "#3B82F6"),
+		"theme_bg_color":     rawJSON(t, "#F0F4F8"),
+		"theme_bg_image_url": rawJSON(t, "https://cdn.example.com/bg.jpg"),
+		"theme_bg_dim":       rawJSON(t, 0.5),
+		"theme_glass":        rawJSON(t, 0.6),
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -411,18 +411,21 @@ func TestPutSettingsSMTP(t *testing.T) {
 	if stored.Password != "secret-pw" {
 		t.Errorf("打码回传应保留明文, got %q", stored.Password)
 	}
-	// 校验矩阵
-	for name, bad := range map[string]map[string]any{
-		"port0":    {"host": "h", "port": 0, "encryption": "none"},
-		"port高":   {"host": "h", "port": 65536, "encryption": "none"},
-		"enc非法":  {"host": "h", "port": 25, "encryption": "tls13"},
-		"from非邮": {"host": "h", "port": 25, "encryption": "none", "from": "not-an-email"},
-		"from_a@":  {"host": "h", "port": 25, "encryption": "none", "from": "a@"},
-		"from_a@b": {"host": "h", "port": 25, "encryption": "none", "from": "a@b"},
-		"none+认证": {"host": "h", "port": 25, "encryption": "none", "username": "u"},
+	// 校验矩阵：每类错误单独文案，避免再把「改用户名」理解成端口/加密填错。
+	for name, tc := range map[string]struct {
+		body map[string]any
+		want error
+	}{
+		"port0":    {map[string]any{"host": "h", "port": 0, "encryption": "none"}, ErrSMTPPortInvalid},
+		"port高":    {map[string]any{"host": "h", "port": 65536, "encryption": "none"}, ErrSMTPPortInvalid},
+		"enc非法":    {map[string]any{"host": "h", "port": 25, "encryption": "tls13"}, ErrSMTPEncryptionInvalid},
+		"from非邮":   {map[string]any{"host": "h", "port": 25, "encryption": "none", "from": "not-an-email"}, ErrSMTPFromInvalid},
+		"from_a@":  {map[string]any{"host": "h", "port": 25, "encryption": "none", "from": "a@"}, ErrSMTPFromInvalid},
+		"from_a@b": {map[string]any{"host": "h", "port": 25, "encryption": "none", "from": "a@b"}, ErrSMTPFromInvalid},
+		"none+认证":  {map[string]any{"host": "h", "port": 25, "encryption": "none", "username": "u"}, ErrSMTPNoneWithAuth},
 	} {
-		if err := svc.PutSettings(map[string]json.RawMessage{"smtp": rawJSON(t, bad)}); !errors.Is(err, ErrSMTPInvalid) {
-			t.Errorf("%s err = %v, want ErrSMTPInvalid", name, err)
+		if err := svc.PutSettings(map[string]json.RawMessage{"smtp": rawJSON(t, tc.body)}); !errors.Is(err, tc.want) {
+			t.Errorf("%s err = %v, want %v", name, err, tc.want)
 		}
 	}
 }
@@ -441,8 +444,57 @@ func TestPutSettingsSMTPMaskedPasswordHostChange(t *testing.T) {
 	if err := svc.PutSettings(map[string]json.RawMessage{"smtp": rawJSON(t, map[string]any{
 		"host": "evil.example", "port": 465, "username": "u", "password": masked,
 		"from": "no-reply@img.li", "encryption": "ssl",
-	})}); !errors.Is(err, ErrSMTPInvalid) {
-		t.Fatalf("掩码+改 host err = %v, want ErrSMTPInvalid", err)
+	})}); !errors.Is(err, ErrSMTPPasswordReenter) {
+		t.Fatalf("掩码+改 host err = %v, want ErrSMTPPasswordReenter", err)
+	}
+}
+
+// TestPutSettingsSMTPMaskedPasswordUsernameChange 掩码密码 + 改 username（飞书/Lark
+// 公共邮箱用户先存了密码再补邮箱用户名的典型路径）→ 明确要求重输密码，而不是
+// 笼统的 port/encryption/from 无效。
+func TestPutSettingsSMTPMaskedPasswordUsernameChange(t *testing.T) {
+	svc := New(model.TestDB(t))
+	if err := svc.PutSettings(map[string]json.RawMessage{"smtp": rawJSON(t, map[string]any{
+		"host": "smtp.larksuite.com", "port": 465, "username": "", "password": "imap-smtp-pw",
+		"from": "noreply@qqqu.de", "encryption": "ssl",
+	})}); err != nil {
+		t.Fatal(err)
+	}
+	m, _ := svc.GetSettings()
+	masked := m["smtp"].(map[string]any)["password"].(string)
+	if err := svc.PutSettings(map[string]json.RawMessage{"smtp": rawJSON(t, map[string]any{
+		"host": "smtp.larksuite.com", "port": 465, "username": "noreply@qqqu.de", "password": masked,
+		"from": "noreply@qqqu.de", "encryption": "ssl",
+	})}); !errors.Is(err, ErrSMTPPasswordReenter) {
+		t.Fatalf("掩码+改 username err = %v, want ErrSMTPPasswordReenter", err)
+	}
+	if err := svc.PutSettings(map[string]json.RawMessage{"smtp": rawJSON(t, map[string]any{
+		"host": "smtp.larksuite.com", "port": 465, "username": "noreply@qqqu.de", "password": "imap-smtp-pw",
+		"from": "noreply@qqqu.de", "encryption": "ssl",
+	})}); err != nil {
+		t.Fatalf("改 username 并重输密码应成功, err = %v", err)
+	}
+}
+
+// TestPutSettingsSMTPTrimsIdentity 复制粘贴带空白的 host/username/from 应被 trim 后落库。
+func TestPutSettingsSMTPTrimsIdentity(t *testing.T) {
+	svc := New(model.TestDB(t))
+	if err := svc.PutSettings(map[string]json.RawMessage{"smtp": rawJSON(t, map[string]any{
+		"host": " smtp.larksuite.com ", "port": 465, "username": "  noreply@qqqu.de\n",
+		"password": "pw", "from": " noreply@qqqu.de ", "encryption": "ssl",
+	})}); err != nil {
+		t.Fatalf("trim 后应合法, err = %v", err)
+	}
+	var row model.Setting
+	if err := svc.db.First(&row, "key = ?", model.SettingSMTP).Error; err != nil {
+		t.Fatal(err)
+	}
+	var stored mail.Config
+	if err := json.Unmarshal([]byte(row.Value), &stored); err != nil {
+		t.Fatal(err)
+	}
+	if stored.Host != "smtp.larksuite.com" || stored.Username != "noreply@qqqu.de" || stored.From != "noreply@qqqu.de" {
+		t.Errorf("未 trim: %+v", stored)
 	}
 }
 
@@ -476,5 +528,34 @@ func TestPutSettingsSMTPMaskedPasswordSameIdentity(t *testing.T) {
 	}
 	if stored.Port != 587 || stored.Encryption != "starttls" {
 		t.Errorf("其它字段应更新: port=%d enc=%s", stored.Port, stored.Encryption)
+	}
+}
+
+func TestPutSettingsMailTemplates(t *testing.T) {
+	svc := New(model.TestDB(t))
+	if err := svc.PutSettings(map[string]json.RawMessage{"mail_templates": rawJSON(t, map[string]any{
+		"welcome": map[string]any{
+			"subject": map[string]string{"zh": "欢迎来到 {{site_name}}", "en": "Hi {{site_name}}"},
+			"body":    map[string]string{"zh": "自己的欢迎词", "en": "our welcome"},
+		},
+	})}); err != nil {
+		t.Fatalf("合法文案 err = %v", err)
+	}
+	m, err := svc.GetSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tpl := m["mail_templates"].(mail.Templates)
+	if tpl.Welcome.Body.ZH != "自己的欢迎词" {
+		t.Errorf("回读 welcome body = %+v", tpl.Welcome)
+	}
+	defs := m["mail_template_defaults"].(mail.Templates)
+	if defs.Reset.Subject.ZH == "" {
+		t.Error("应回传内置默认供填入")
+	}
+	if err := svc.PutSettings(map[string]json.RawMessage{"mail_templates": rawJSON(t, map[string]any{
+		"welcome": map[string]any{"subject": map[string]string{"zh": "x {{foo}}"}},
+	})}); !errors.Is(err, mail.ErrCopyUnknownPlaceholder) {
+		t.Fatalf("未知占位 err = %v", err)
 	}
 }

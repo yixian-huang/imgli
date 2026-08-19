@@ -10,6 +10,26 @@ separate version in `go.mod` or `web/package.json`.
 
 ## [Unreleased]
 
+## [0.9.14] - 2026-08-19
+
+Theme: **Lark/Feishu SMTP + customizable mail copy**.
+
+### Added
+
+- **Mail copy overrides:** Admin → Email SMTP can edit zh/en subject and body for welcome, verify, reset, change-email, and reject notices. Layout, button, and copyable link stay built-in. Empty fields keep the stock text. Placeholders: `{{site_name}}` `{{link}}` `{{image_name}}` `{{image_key}}`. Preview and “send this template” use the current form (no need to save first). Button color follows `theme_accent`.
+- **SMTP AUTH LOGIN:** when the server advertises LOGIN but not PLAIN (common on Lark/Feishu and some 163/QQ endpoints), imgli authenticates with LOGIN instead of only PLAIN.
+
+### Fixed
+
+- **Could not save SMTP after changing username:** a masked password plus a new host/username was rejected as a generic “port/encryption/from invalid” error. The form now clears the mask, asks to re-enter the password, and the API says so explicitly. Host/username/from are trimmed.
+- **Test send ignored the form:** “Send test email” used only the last saved config, so filling a Lark username then testing produced `530 5.7.1 Authentication required`. Tests now send the form values; empty From falls back to username.
+- **Opaque SMTP errors:** 530/535, TLS/port mismatch, timeout, DNS, and sender-rejected failures are mapped to actionable Chinese (and English toasts still surface the server text when useful). Validation errors for port, encryption, From, and “none + username” are split.
+
+### Changed
+
+- Choosing SSL on the default port 587 switches to 465 (and STARTTLS on 465 switches to 587). Custom ports are left alone; 465+STARTTLS / 587+SSL show an inline warning.
+- SMTP field hints cover Lark/Feishu public mailboxes (full address + IMAP/SMTP password, not the login password).
+
 ## [0.9.13] - 2026-08-16
 
 Theme: **Upload drag-and-drop correctness**.
@@ -527,7 +547,8 @@ Theme: **Workflow & Trust** — CLI/integrations, share landing, privacy
 - Bilingual UI (中文/English), PWA, dark mode, text watermark, admin audit logs.
 - Docker Compose quick start and GitHub Actions CI (Go matrix, web, e2e smoke).
 
-[Unreleased]: https://github.com/yixian-huang/imgli/compare/v0.9.13...HEAD
+[Unreleased]: https://github.com/yixian-huang/imgli/compare/v0.9.14...HEAD
+[0.9.14]: https://github.com/yixian-huang/imgli/compare/v0.9.13...v0.9.14
 [0.9.13]: https://github.com/yixian-huang/imgli/compare/v0.9.12...v0.9.13
 [0.9.12]: https://github.com/yixian-huang/imgli/compare/v0.9.11...v0.9.12
 [0.9.11]: https://github.com/yixian-huang/imgli/compare/v0.9.10...v0.9.11

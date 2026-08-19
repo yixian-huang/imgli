@@ -126,6 +126,7 @@ func (s *Server) mountAPI() {
 	runner.Register("moderate_image", modSvc.ModerateTask)
 	// 拒绝通知：读用户邮箱 + 站点名，best-effort 异步发送（mail 未配则静默）。
 	mailForReject := mail.New(s.opts.DB)
+	mailForReject.BaseURL = s.opts.Cfg.BaseURL
 	modSvc.OnReject = func(img model.Image) {
 		if img.UserID == nil {
 			return
@@ -134,14 +135,11 @@ func (s *Server) mountAPI() {
 		if err := s.opts.DB.First(&u, *img.UserID).Error; err != nil || u.Email == "" {
 			return
 		}
-		siteName := "img.li"
-		_ = st.Get(model.SettingSiteName, &siteName)
 		lang := "zh"
 		if u.Preferences.Lang == "en" {
 			lang = "en"
 		}
-		subj, html := mail.RenderImageRejected(siteName, img.Key, img.Name, lang)
-		if err := mailForReject.Send(u.Email, subj, html); err != nil {
+		if err := mailForReject.SendImageRejected(u.Email, img.Key, img.Name, lang); err != nil {
 			slog.Warn("reject notify mail failed", "key", img.Key, "err", err)
 		}
 	}
@@ -167,6 +165,7 @@ func (s *Server) mountAPI() {
 	// UseDataDir：local 策略「测试连接」与 storagesvc 同一路径解析（相对 root → data_dir）
 	adm := adminsvc.New(s.opts.DB, st).UseDataDir(s.opts.Cfg.DataDir)
 	mailSvc := mail.New(s.opts.DB)
+	mailSvc.BaseURL = s.opts.Cfg.BaseURL
 	authSvc.Mailer = mailSvc
 	authSvc.BaseURL = s.opts.Cfg.BaseURL
 	admH := &handler.AdminHandlers{D: handler.AdminDeps{
@@ -301,6 +300,8 @@ func (s *Server) mountAPI() {
 				ar.Get("/settings", admH.GetSettings)
 				ar.Put("/settings", admH.PutSettings)
 				ar.Post("/settings/smtp/test", admH.TestSMTP)
+				ar.Post("/settings/mail/preview", admH.PreviewMail)
+				ar.Post("/settings/mail/test", admH.TestMail)
 				ar.Post("/settings/moderation/test", admH.TestModeration)
 				ar.Get("/logs", admH.Logs)
 				ar.Get("/invites", admH.Invites)

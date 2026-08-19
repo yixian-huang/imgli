@@ -115,6 +115,12 @@ curl -sfS https://img.li/healthz
 3. **原图 WebP**：Docker 镜像默认带 libvips；纯 Go GitHub 二进制无 vips 时 `processing_capabilities.webp_encode` 为 false，后台勿强开 WebP。
 4. 系统页可读出 `imaging_backend` / `webp_encode`。
 
+## 升级到 v0.9.14（SMTP · 邮件文案）
+
+1. 滚动部署新二进制/镜像即可。首次启动 Seed 会写入空的 `mail_templates` 键（全空=继续用内置文案），**无 schema / 存储迁移**。
+2. 后台 **系统设置 → 邮件 SMTP**：飞书/Lark 公共邮箱用完整地址 + IMAP/SMTP 密码；改用户名须重输密码；测发信用当前表单。其下 **邮件文案** 可改五封信的中英主题/正文，预览/试发不必先保存。
+3. `imgli version` 为 **v0.9.14**；SPA 冒烟（本页「部署后」表）。
+
 ## 升级到 v0.9.13（上传拖放）
 
 1. 滚动部署新二进制/镜像即可，**无 schema / 存储迁移**。

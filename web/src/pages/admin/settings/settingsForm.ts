@@ -1,5 +1,35 @@
-import type { AdminSettings, ShareBranding, SiteAnnouncement } from '../../../api/types'
+import type { AdminSettings, MailKind, MailTemplates, ShareBranding, SiteAnnouncement } from '../../../api/types'
 import { toLocaleMap } from '../../../lib/locale'
+
+export const MAIL_KINDS: MailKind[] = ['welcome', 'verify', 'reset', 'change_email', 'reject']
+
+export type MailKindCopyForm = { subject: FormLocale; body: FormLocale }
+export type MailTemplatesForm = Record<MailKind, MailKindCopyForm>
+
+export function emptyMailCopy(): MailKindCopyForm {
+  return { subject: emptyLocale(), body: emptyLocale() }
+}
+
+export function emptyMailTemplates(): MailTemplatesForm {
+  return {
+    welcome: emptyMailCopy(),
+    verify: emptyMailCopy(),
+    reset: emptyMailCopy(),
+    change_email: emptyMailCopy(),
+    reject: emptyMailCopy(),
+  }
+}
+
+export function mailTemplatesOf(raw?: MailTemplates | null): MailTemplatesForm {
+  const out = emptyMailTemplates()
+  if (!raw) return out
+  for (const k of MAIL_KINDS) {
+    const c = raw[k]
+    if (!c) continue
+    out[k] = { subject: toLocaleMap(c.subject), body: toLocaleMap(c.body) }
+  }
+  return out
+}
 
 export type FormLocale = { zh: string; en: string }
 
@@ -109,6 +139,8 @@ export interface FormState {
   aboutEnabled: boolean
   aboutBody: FormLocale
   welcomeEmail: boolean
+  mailTemplates: MailTemplatesForm
+  mailDefaults: MailTemplatesForm
   themeAccent: string
   themeBgColor: string
   themeBgImageUrl: string
@@ -213,6 +245,8 @@ export function formOf(s: AdminSettings): FormState {
     aboutEnabled: !!s.about_enabled,
     aboutBody: toLocaleMap(s.about_body),
     welcomeEmail: s.welcome_email !== false,
+    mailTemplates: mailTemplatesOf(s.mail_templates),
+    mailDefaults: mailTemplatesOf(s.mail_template_defaults),
     themeAccent: s.theme_accent ?? '',
     themeBgColor: s.theme_bg_color ?? '',
     themeBgImageUrl: s.theme_bg_image_url ?? '',
@@ -231,4 +265,71 @@ export function formOf(s: AdminSettings): FormState {
     publicStatsShowUsers: !!s.public_stats?.show_users,
     publicStatsShowBytes: !!s.public_stats?.show_used_bytes,
   }
+}
+
+export function smtpIdentitySame(
+  form: FormState,
+  orig?: { host: string; username: string },
+): boolean {
+  return !!orig && form.smtpHost.trim() === orig.host && form.smtpUser.trim() === orig.username
+}
+
+export function smtpPayload(form: FormState): {
+  host: string
+  port: number
+  username: string
+  password: string
+  from: string
+  encryption: FormState['smtpEnc']
+} {
+  return {
+    host: form.smtpHost.trim(),
+    port: form.smtpPort,
+    username: form.smtpUser.trim(),
+    password: form.smtpPassword,
+    from: form.smtpFrom.trim(),
+    encryption: form.smtpEnc,
+  }
+}
+
+/** 改了 host/username 后仍拿着掩码或被清空的旧密码 → 必须重输，不能把旧凭据打到新身份。 */
+export function smtpNeedsPasswordReenter(
+  form: FormState,
+  orig?: { host: string; username: string; password: string },
+): boolean {
+  if (smtpIdentitySame(form, orig)) return false
+  if (form.smtpPassword.startsWith('****')) return true
+  return form.smtpPassword === '' && !!orig?.password
+}
+
+export function smtpLooksLikeEmail(s: string): boolean {
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s.trim())
+}
+
+export function smtpPortEncMismatch(port: number, enc: FormState['smtpEnc']): boolean {
+  return (port === 465 && enc === 'starttls') || (port === 587 && enc === 'ssl')
+}
+
+/** 只在端口仍是 587/465 这一对默认值时跟着加密方式改，自定义端口不动。 */
+export function smtpSuggestedPort(enc: FormState['smtpEnc'], current: number): number {
+  if (enc === 'ssl' && current === 587) return 465
+  if (enc === 'starttls' && current === 465) return 587
+  return current
+}
+
+export type SmtpClientErrorKey = 'smtpPortInvalid' | 'smtpFromInvalid' | 'smtpNoneWithAuth'
+
+export function smtpClientError(form: FormState): SmtpClientErrorKey | null {
+  if (form.smtpPort < 1 || form.smtpPort > 65535) return 'smtpPortInvalid'
+  if (form.smtpFrom.trim() && !smtpLooksLikeEmail(form.smtpFrom)) return 'smtpFromInvalid'
+  if (form.smtpEnc === 'none' && form.smtpUser.trim()) return 'smtpNoneWithAuth'
+  return null
+}
+
+export function smtpTestRecipient(form: FormState, testTo: string): string {
+  const typed = testTo.trim()
+  if (typed) return typed
+  if (smtpLooksLikeEmail(form.smtpFrom)) return form.smtpFrom.trim()
+  if (smtpLooksLikeEmail(form.smtpUser)) return form.smtpUser.trim()
+  return ''
 }

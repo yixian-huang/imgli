@@ -28,3 +28,18 @@ func TestSettingSMTPSeedMatchesDefaultConfig(t *testing.T) {
 		t.Errorf("播种值 = %+v, DefaultConfig() = %+v", seeded, mail.DefaultConfig())
 	}
 }
+
+func TestSettingMailTemplatesSeedMatchesDefault(t *testing.T) {
+	db := model.TestDB(t)
+	var row model.Setting
+	if err := db.First(&row, "key = ?", model.SettingMailTemplates).Error; err != nil {
+		t.Fatal(err)
+	}
+	var seeded mail.Templates
+	if err := json.Unmarshal([]byte(row.Value), &seeded); err != nil {
+		t.Fatalf("播种的 mail_templates JSON 解析失败: %v", err)
+	}
+	if seeded != mail.DefaultTemplates() {
+		t.Errorf("播种值 = %+v, DefaultTemplates() = %+v", seeded, mail.DefaultTemplates())
+	}
+}

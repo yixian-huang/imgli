@@ -37,11 +37,28 @@ var ErrNotConfigured = errors.New("mail: SMTP 未配置")
 const dialTimeout = 10 * time.Second
 
 type Service struct {
-	db     *gorm.DB
-	sender func(cfg Config, to string, msg []byte) error // 测试注入点
+	db      *gorm.DB
+	sender  func(cfg Config, to string, msg []byte) error // 测试注入点
+	BaseURL string                                        // 欢迎/拒绝预览按钮；server 注入
 }
 
 func New(db *gorm.DB) *Service { return &Service{db: db, sender: smtpSend} }
+
+func (s *Service) templates() Templates {
+	t := DefaultTemplates()
+	if err := settings.New(s.db).Get(model.SettingMailTemplates, &t); err != nil && !errors.Is(err, settings.ErrNotFound) {
+		return DefaultTemplates()
+	}
+	return t
+}
+
+func (s *Service) accent() string {
+	var a string
+	if err := settings.New(s.db).Get(model.SettingThemeAccent, &a); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(a)
+}
 
 func (s *Service) config() (Config, error) {
 	cfg := DefaultConfig()
@@ -66,34 +83,99 @@ func (s *Service) Send(to, subject, htmlBody string) error {
 	if err != nil {
 		return err
 	}
-	if cfg.Host == "" {
+	return s.SendWithConfig(cfg, to, subject, htmlBody)
+}
+
+// SendWithConfig 用调用方给出的配置发信（测试邮件可走未保存的表单值）。
+// host 空返回 ErrNotConfigured；from 空则回退到 username（飞书公共邮箱常只填用户名）。
+func (s *Service) SendWithConfig(cfg Config, to, subject, htmlBody string) error {
+	if strings.TrimSpace(cfg.Host) == "" {
 		return ErrNotConfigured
 	}
-	return s.sender(cfg, to, buildMessage(cfg.From, to, subject, htmlBody))
+	from := effectiveFrom(cfg)
+	cfg.From = from
+	return s.sender(cfg, to, buildMessage(from, to, subject, htmlBody))
+}
+
+func effectiveFrom(cfg Config) string {
+	if f := strings.TrimSpace(cfg.From); f != "" {
+		return f
+	}
+	return strings.TrimSpace(cfg.Username)
 }
 
 // SendResetPassword 渲染重置密码模板并发送(auth.Mailer 实现)。lang 透传模板。
 func (s *Service) SendResetPassword(to, link, lang string) error {
-	sub, html := RenderResetPassword(s.siteName(), link, lang)
+	sub, html := RenderResetPassword(s.siteName(), link, lang, s.templates().Reset)
 	return s.Send(to, sub, html)
 }
 
 // SendVerifyEmail 渲染邮箱验证模板并发送(auth.Mailer 实现)。lang 透传模板。
 func (s *Service) SendVerifyEmail(to, link, lang string) error {
-	sub, html := RenderVerifyEmail(s.siteName(), link, lang)
+	sub, html := RenderVerifyEmail(s.siteName(), link, lang, s.templates().Verify)
 	return s.Send(to, sub, html)
 }
 
 // SendChangeEmail 换绑邮箱确认(auth.Mailer 实现)。
 func (s *Service) SendChangeEmail(to, link, lang string) error {
-	sub, html := RenderChangeEmail(s.siteName(), link, lang)
+	sub, html := RenderChangeEmail(s.siteName(), link, lang, s.templates().ChangeEmail)
 	return s.Send(to, sub, html)
 }
 
 // SendWelcome 注册欢迎信。baseURL 用于拼设置页链接；SMTP 未配返回 ErrNotConfigured。
 func (s *Service) SendWelcome(to, baseURL, lang string) error {
-	sub, html := RenderWelcome(s.siteName(), baseURL, lang)
+	sub, html := RenderWelcome(s.siteName(), baseURL, lang, s.templates().Welcome)
 	return s.Send(to, sub, html)
+}
+
+// SendImageRejected 审核拒绝通知。
+func (s *Service) SendImageRejected(to, imageKey, imageName, lang string) error {
+	sub, html := RenderImageRejectedAt(s.siteName(), imageKey, imageName, lang, s.BaseURL, s.templates().Reject)
+	return s.Send(to, sub, html)
+}
+
+// Preview 渲染一封信，不发送。over 非空则用其文案（表单草稿）；否则用已存 mail_templates。
+func (s *Service) Preview(kind Kind, lang string, over *Templates) (subject, html string, err error) {
+	tpl := s.templates()
+	if over != nil {
+		tpl = over.Normalize()
+	}
+	base := strings.TrimRight(s.BaseURL, "/")
+	if base == "" {
+		base = "https://example.com"
+	}
+	vars := SampleVars(s.siteName(), base)
+	switch kind {
+	case KindReset:
+		vars.Link = base + "/reset-password?token=preview"
+	case KindVerify:
+		vars.Link = base + "/verify-email?token=preview"
+	case KindChangeEmail:
+		vars.Link = base + "/confirm-email?token=preview"
+	case KindReject:
+		vars.Link = base
+	default:
+		vars.Link = base + "/settings"
+	}
+	return Render(kind, lang, vars, tpl.Copy(kind), s.accent())
+}
+
+// SendKind 用 Preview 的渲染结果经已存 SMTP 发出。
+func (s *Service) SendKind(to string, kind Kind, lang string, over *Templates) error {
+	sub, html, err := s.Preview(kind, lang, over)
+	if err != nil {
+		return err
+	}
+	return s.Send(to, sub, html)
+}
+
+// SendKindWithConfig 同上，SMTP 用调用方覆盖（测发信可走未保存配置）。
+func (s *Service) SendKindWithConfig(cfg Config, to string, kind Kind, lang string, over *Templates) error {
+	sub, html, err := s.Preview(kind, lang, over)
+	if err != nil {
+		return err
+	}
+	return s.SendWithConfig(cfg, to, sub, html)
 }
 
 // buildMessage 组 RFC5322 信封:中文主题 RFC2047 Q 编码;HTML utf-8 正文 8bit 直发
@@ -134,10 +216,8 @@ func smtpSend(cfg Config, to string, msg []byte) error {
 			return err
 		}
 	}
-	if cfg.Username != "" {
-		if err := c.Auth(smtp.PlainAuth("", cfg.Username, cfg.Password, cfg.Host)); err != nil {
-			return err
-		}
+	if err := smtpAuthenticate(c, cfg); err != nil {
+		return err
 	}
 	if err := c.Mail(cfg.From); err != nil {
 		return err
