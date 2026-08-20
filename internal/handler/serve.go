@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"golang.org/x/sync/singleflight"
@@ -152,6 +153,7 @@ func (h *ServeHandlers) lookupServable(w http.ResponseWriter, r *http.Request) (
 	}
 	acc := servesvc.Access{
 		IsOwner:     h.isOwner(r, img),
+		IsAdmin:     h.isAdmin(r),
 		PasswordOK:  imgPasswordOK(r, img),
 		RefererHost: refererHost(r),
 	}
@@ -351,7 +353,7 @@ func (h *ServeHandlers) streamWidthThumb(w http.ResponseWriter, r *http.Request,
 	rc, err := d.Open(r.Context(), key)
 	if errors.Is(err, storage.ErrNotFound) {
 		// singleflight：同对象同边长并发 miss 只生成一次，防缓存击穿。
-		sfKey := file.Hash + "|w" + strconv.Itoa(width) + "|" + file.Surface
+		sfKey := file.Hash + "|w" + strconv.Itoa(width) + "|" + storagesvc.NormSurface(file.Surface)
 		_, genErr, _ := h.thumbSF.Do(sfKey, func() (any, error) {
 			// 已知像素过大则跳过现场解码（pure-Go 全图 RGBA 可达数百 MB）。
 			if file.Width > 0 && file.Height > 0 {
@@ -362,7 +364,7 @@ func (h *ServeHandlers) streamWidthThumb(w http.ResponseWriter, r *http.Request,
 			if file.Size > int64(imaging.MaxThumbSourceBytes) {
 				return nil, errThumbGen
 			}
-			src, oerr := d.Open(r.Context(), file.Path)
+			src, oerr := h.openOriginal(r.Context(), d, policy, file)
 			if oerr != nil {
 				return nil, oerr
 			}
@@ -450,6 +452,11 @@ func (h *ServeHandlers) streamWidthThumb(w http.ResponseWriter, r *http.Request,
 func (h *ServeHandlers) isOwner(r *http.Request, img *model.Image) bool {
 	p := PrincipalFrom(r)
 	return p != nil && img.UserID != nil && *img.UserID == p.User.ID
+}
+
+func (h *ServeHandlers) isAdmin(r *http.Request) bool {
+	p := PrincipalFrom(r)
+	return p != nil && p.User != nil && p.User.IsAdmin
 }
 
 // openThumb 按 ThumbKeyCandidates 探测:surface 前缀现行世代 webp/jpg → (仅 public)
@@ -585,7 +592,7 @@ func (h *ServeHandlers) streamFile(w http.ResponseWriter, r *http.Request, file 
 		}
 		if err != nil {
 			if thumb && errors.Is(err, storage.ErrNotFound) {
-				if grc, gct, gerr := h.ensureDefaultThumb(r.Context(), d, file); gerr == nil {
+				if grc, gct, gerr := h.ensureDefaultThumb(r.Context(), d, policy, file); gerr == nil {
 					rc, ctype = grc, gct
 				} else {
 					h.placeholder(w, r, http.StatusNotFound, "NOT FOUND")
@@ -651,10 +658,65 @@ func (h *ServeHandlers) imageFail(w http.ResponseWriter, r *http.Request, status
 	h.placeholder(w, r, status, label)
 }
 
+// openOriginal 打开原图：先源站对象键，公开图再回落策略 CDN（/i 302 的同一 ObjectURL）。
+// 生产上源站 API 偶发 404、CDN 边缘仍有对象时，后台 /t 不能再画 NOT FOUND。
+func (h *ServeHandlers) openOriginal(ctx context.Context, d storage.Driver, policy *model.StoragePolicy, file *model.File) (io.ReadCloser, error) {
+	rc, err := d.Open(ctx, file.Path)
+	if err == nil {
+		return rc, nil
+	}
+	if !errors.Is(err, storage.ErrNotFound) || policy == nil || h.D.Res == nil {
+		return nil, err
+	}
+	u := h.D.Res.ObjectURL(policy, file.Path)
+	if u == "" {
+		return nil, err
+	}
+	data, ferr := fetchPublicObject(ctx, u, imaging.MaxThumbSourceBytes)
+	if ferr != nil {
+		return nil, err
+	}
+	return io.NopCloser(bytes.NewReader(data)), nil
+}
+
+func fetchPublicObject(ctx context.Context, rawURL string, limit int) ([]byte, error) {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
+		return nil, storage.ErrNotFound
+	}
+	if limit <= 0 {
+		limit = imaging.MaxThumbSourceBytes
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, storage.ErrNotFound
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, errors.New("serve: cdn fetch failed")
+	}
+	data, err := io.ReadAll(io.LimitReader(resp.Body, int64(limit)+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) == 0 || len(data) > limit {
+		return nil, errThumbGen
+	}
+	return data, nil
+}
+
 // ensureDefaultThumb 默认 /t 未命中时从原图现场生成（与上传 ThumbMaxEdge=400 对齐）。
 // Put 失败仍返回内存中的图，避免 MinIO 刚写入不可见或 thumb Put 失败时第一次 /t 裂图。
-func (h *ServeHandlers) ensureDefaultThumb(ctx context.Context, d storage.Driver, file *model.File) (io.ReadSeekCloser, string, error) {
-	sfKey := file.Hash + "|t|" + file.Surface
+func (h *ServeHandlers) ensureDefaultThumb(ctx context.Context, d storage.Driver, policy *model.StoragePolicy, file *model.File) (io.ReadSeekCloser, string, error) {
+	sfKey := file.Hash + "|t|" + storagesvc.NormSurface(file.Surface)
 	v, genErr, _ := h.thumbSF.Do(sfKey, func() (any, error) {
 		if file.Width > 0 && file.Height > 0 {
 			if int64(file.Width)*int64(file.Height) > int64(imaging.MaxDecodePixels) {
@@ -664,7 +726,7 @@ func (h *ServeHandlers) ensureDefaultThumb(ctx context.Context, d storage.Driver
 		if file.Size > int64(imaging.MaxThumbSourceBytes) {
 			return nil, errThumbGen
 		}
-		src, oerr := d.Open(ctx, file.Path)
+		src, oerr := h.openOriginal(ctx, d, policy, file)
 		if oerr != nil {
 			return nil, oerr
 		}

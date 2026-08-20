@@ -115,6 +115,12 @@ curl -sfS https://img.li/healthz
 3. **原图 WebP**：Docker 镜像默认带 libvips；纯 Go GitHub 二进制无 vips 时 `processing_capabilities.webp_encode` 为 false，后台勿强开 WebP。
 4. 系统页可读出 `imaging_backend` / `webp_encode`。
 
+## 升级到 v0.9.16（后台缩略图 NOT FOUND）
+
+1. 滚动部署新二进制/镜像即可，**无 schema / 存储迁移**。
+2. 验收：后台「全部图片」格子不再对前台「我的图片」能打开的公开图显示 NOT FOUND；管理员打开他人私密/待审图应看到原图而非 PRIVATE IMAGE。
+3. `imgli version` 为 **v0.9.16**；SPA 冒烟（本页「部署后」表）。
+
 ## 升级到 v0.9.15（MinIO/S3 第一次缩略图）
 
 1. 滚动部署新二进制/镜像即可，**无 schema / 存储迁移**。

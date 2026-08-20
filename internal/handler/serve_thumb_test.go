@@ -1,6 +1,9 @@
 package handler
 
 import (
+	"bytes"
+	"image"
+	"image/png"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -145,6 +148,72 @@ func TestThumbDualProbeWebPThenJPEGThen404(t *testing.T) {
 	rec = fx.getT()
 	if rec.Code != 404 {
 		t.Fatalf("none: status=%d want 404 body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestThumbEmptySurfaceReadsPublicKeys(t *testing.T) {
+	fx := newThumbFixture(t)
+	if err := fx.sh.D.DB.Exec("UPDATE files SET surface = '' WHERE hash = ?", fx.hash).Error; err != nil {
+		t.Fatal(err)
+	}
+	// 原图不在盘上：逼 /t 只靠缩略图键，不能走 ensureDefaultThumb。
+	orig := filepath.Join(fx.dataDir, "uploads", "2024", "02", "02", "thumbprobe01.png")
+	_ = os.Remove(orig)
+
+	pubThumb := storagesvc.ThumbKey(model.SurfacePublic, fx.hash)
+	fx.writeThumb(t, pubThumb, []byte("emptysurfacejpg"))
+	rec := fx.getT()
+	if rec.Code != 200 {
+		t.Fatalf("空 surface 应命中 public/.thumbs, status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	if rec.Body.String() != "emptysurfacejpg" {
+		t.Errorf("body=%q", rec.Body.String())
+	}
+}
+
+func tinyPNG() []byte {
+	img := image.NewRGBA(image.Rect(0, 0, 8, 8))
+	var b bytes.Buffer
+	_ = png.Encode(&b, img)
+	return b.Bytes()
+}
+
+func TestServeThumbFallsBackToCDNOrigin(t *testing.T) {
+	fx := newThumbFixture(t)
+	origRel := "2024/02/02/thumbprobe01.png"
+	_ = os.Remove(filepath.Join(fx.dataDir, "uploads", filepath.FromSlash(origRel)))
+	for _, tk := range storagesvc.ThumbKeyCandidates(model.SurfacePublic, fx.hash) {
+		_ = os.Remove(fx.thumbPath(tk))
+	}
+
+	pngBytes := tinyPNG()
+	cdn := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/"+origRel {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "image/png")
+		_, _ = w.Write(pngBytes)
+	}))
+	t.Cleanup(cdn.Close)
+	if err := fx.sh.D.DB.Model(&model.StoragePolicy{}).Where("id = 1").
+		Update("cdn_domain", cdn.URL).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	rec := fx.getT()
+	if rec.Code != 200 {
+		t.Fatalf("源站原图缺失时应从 CDN 生成 /t, status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	ct := rec.Header().Get("Content-Type")
+	if ct != "image/jpeg" && ct != "image/webp" {
+		t.Errorf("Content-Type=%q", ct)
+	}
+	if rec.Body.Len() < 32 {
+		t.Errorf("生成缩略图过短: %d", rec.Body.Len())
+	}
+	if strings.Contains(rec.Body.String(), "NOT FOUND") {
+		t.Fatal("不应再返回 NOT FOUND 占位")
 	}
 }
 

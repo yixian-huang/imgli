@@ -10,6 +10,15 @@ separate version in `go.mod` or `web/package.json`.
 
 ## [Unreleased]
 
+## [0.9.16] - 2026-08-20
+
+Theme: **Admin thumbs NOT FOUND**.
+
+### Fixed
+
+- **Admin grid showed `NOT FOUND` for photos still visible in the owner's library:** public `/i` often 302s to CDN, but the admin grid always loads `/t`, which only opened origin keys. Empty `files.surface` also probed `private/.thumbs`. `/t` now treats empty surface as public and, on origin miss, fetches the same CDN object `/i` would redirect to, then generates the thumb.
+- **Admin could not preview other users' private / pending / password / expired images:** `/i` and `/t` only treated the owner as privileged, so the admin grid rendered `PRIVATE IMAGE` / `IMAGE REMOVED`. Logged-in admins can now preview those originals and thumbs; anonymous access is unchanged.
+
 ## [0.9.15] - 2026-08-19
 
 Theme: **MinIO/S3 first-load thumbnails**.
@@ -561,7 +570,8 @@ Theme: **Workflow & Trust** — CLI/integrations, share landing, privacy
 - Bilingual UI (中文/English), PWA, dark mode, text watermark, admin audit logs.
 - Docker Compose quick start and GitHub Actions CI (Go matrix, web, e2e smoke).
 
-[Unreleased]: https://github.com/yixian-huang/imgli/compare/v0.9.15...HEAD
+[Unreleased]: https://github.com/yixian-huang/imgli/compare/v0.9.16...HEAD
+[0.9.16]: https://github.com/yixian-huang/imgli/compare/v0.9.15...v0.9.16
 [0.9.15]: https://github.com/yixian-huang/imgli/compare/v0.9.14...v0.9.15
 [0.9.14]: https://github.com/yixian-huang/imgli/compare/v0.9.13...v0.9.14
 [0.9.13]: https://github.com/yixian-huang/imgli/compare/v0.9.12...v0.9.13

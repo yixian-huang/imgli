@@ -166,20 +166,31 @@ func (r *Resolver) LinkBase(p *model.StoragePolicy) string {
 // 读取 dual-probe 旧无版本路径，避免 immutable 长缓存在「同 key 键布局变更」后脏读(C2)。
 const ThumbGen = "1"
 
+// NormSurface 读侧规整：空串 ≈ public（与 migrateSurface / 重挂扫描一致）；
+// 未知值 fail-closed 为 private，避免误探公开遗留键。
+func NormSurface(surface string) string {
+	switch surface {
+	case "", model.SurfacePublic:
+		return model.SurfacePublic
+	default:
+		return model.SurfacePrivate
+	}
+}
+
 // ThumbKey 当前世代 JPEG 缩略图键（按 surface 前缀 + 内容寻址）。
 func ThumbKey(surface, hash string) string {
-	return SurfacePrefix(surface) + ".thumbs/g" + ThumbGen + "/" + hash + ".jpg"
+	return SurfacePrefix(NormSurface(surface)) + ".thumbs/g" + ThumbGen + "/" + hash + ".jpg"
 }
 
 // WidthThumbKey 白名单边长变体 JPEG 键（与默认 thumb 隔离，不污染 content-hash 秒传）。
 // 例：public/.thumbs/w400/g1/{hash}.jpg
 func WidthThumbKey(surface, hash string, width int) string {
-	return SurfacePrefix(surface) + ".thumbs/w" + strconv.Itoa(width) + "/g" + ThumbGen + "/" + hash + ".jpg"
+	return SurfacePrefix(NormSurface(surface)) + ".thumbs/w" + strconv.Itoa(width) + "/g" + ThumbGen + "/" + hash + ".jpg"
 }
 
 // ThumbKeyWebP 当前世代 WebP 缩略图键(vips 构建)。
 func ThumbKeyWebP(surface, hash string) string {
-	return SurfacePrefix(surface) + ".thumbs/g" + ThumbGen + "/" + hash + ".webp"
+	return SurfacePrefix(NormSurface(surface)) + ".thumbs/g" + ThumbGen + "/" + hash + ".webp"
 }
 
 // ThumbKeyCandidates 打开缩略图时的探测顺序：surface 前缀现行世代 webp/jpg。
@@ -187,6 +198,7 @@ func ThumbKeyWebP(surface, hash string) string {
 // 需向后兼容。private surface 不探遗留:私密图在 S1 前不存在,且遗留路径是公开可读
 // 位置,私密不应回退到那里(防跨 surface 生命周期耦合)。
 func ThumbKeyCandidates(surface, hash string) []string {
+	surface = NormSurface(surface)
 	c := []string{
 		ThumbKeyWebP(surface, hash),
 		ThumbKey(surface, hash),

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/yixian-huang/imgli/internal/config"
 	"github.com/yixian-huang/imgli/internal/model"
 	"github.com/yixian-huang/imgli/internal/service/storagesvc"
 )
@@ -123,6 +124,70 @@ func TestServeNotFound(t *testing.T) {
 	s.Handler().ServeHTTP(rec, httptest.NewRequest("GET", "/i/nonexistent0.png", nil))
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("不存在应 404, got %d", rec.Code)
+	}
+}
+
+func TestServeAdminCanPreviewOtherUsersPrivateAndPending(t *testing.T) {
+	cfg := &config.Config{BaseURL: "https://img.li", DataDir: t.TempDir()}
+	s := New(Options{Cfg: cfg, DB: model.TestDB(t)})
+	adminCookie := registerAndCookie(t, s, "boss", "boss@x.li", "passw0rd1")
+	userCookie := registerAndCookie(t, s, "pleb", "pleb@x.li", "passw0rd1")
+
+	req, _ := uploadReq(t, "file", "user.png", pngBytes(120, 90))
+	req.AddCookie(userCookie)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("upload: %d %s", rec.Code, rec.Body.String())
+	}
+	var e env
+	json.Unmarshal(rec.Body.Bytes(), &e)
+	var d struct {
+		Key string `json:"key"`
+	}
+	json.Unmarshal(e.Data, &d)
+	if d.Key == "" {
+		t.Fatalf("upload key empty: %s", rec.Body.String())
+	}
+
+	getThumb := func(c *http.Cookie) *httptest.ResponseRecorder {
+		r := httptest.NewRequest("GET", "/t/"+d.Key+".jpg", nil)
+		if c != nil {
+			r.AddCookie(c)
+		}
+		out := httptest.NewRecorder()
+		s.Handler().ServeHTTP(out, r)
+		return out
+	}
+
+	if rec := getThumb(adminCookie); rec.Code != http.StatusOK {
+		t.Fatalf("admin public /t: %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	if err := s.opts.DB.Exec("UPDATE images SET visibility = 'private' WHERE key = ?", d.Key).Error; err != nil {
+		t.Fatal(err)
+	}
+	if rec := getThumb(nil); rec.Code != http.StatusUnauthorized {
+		t.Errorf("anon private /t: %d want 401", rec.Code)
+	}
+	if rec := getThumb(userCookie); rec.Code != http.StatusOK {
+		t.Fatalf("owner private /t: %d body=%s", rec.Code, rec.Body.String())
+	}
+	if rec := getThumb(adminCookie); rec.Code != http.StatusOK {
+		t.Fatalf("admin private /t: %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	if err := s.opts.DB.Exec("UPDATE images SET visibility = 'public', status = 'pending' WHERE key = ?", d.Key).Error; err != nil {
+		t.Fatal(err)
+	}
+	if rec := getThumb(nil); rec.Code != http.StatusGone {
+		t.Errorf("anon pending /t: %d want 410", rec.Code)
+	}
+	if rec := getThumb(userCookie); rec.Code != http.StatusOK {
+		t.Fatalf("owner pending /t: %d body=%s", rec.Code, rec.Body.String())
+	}
+	if rec := getThumb(adminCookie); rec.Code != http.StatusOK {
+		t.Fatalf("admin pending /t: %d body=%s", rec.Code, rec.Body.String())
 	}
 }
 

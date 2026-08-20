@@ -36,6 +36,7 @@ type Deny struct {
 // Access 请求侧已解析的访问上下文（属主/口令由 handler 根据 cookie/session 判定）。
 type Access struct {
 	IsOwner     bool
+	IsAdmin     bool // 管理后台预览：可看他人 private/pending/口令图，不改变匿名门禁
 	PasswordOK  bool // 无口令、属主或已解锁
 	RefererHost string
 }
@@ -73,29 +74,30 @@ func (s *Service) Authorize(img *model.Image, acc Access) *Deny {
 	if img == nil {
 		return &Deny{Kind: DenyNotFound}
 	}
-	if img.Status == "rejected" {
+	privileged := acc.IsOwner || acc.IsAdmin
+	if img.Status == "rejected" && !acc.IsAdmin {
 		return &Deny{Kind: DenyRemoved}
 	}
-	// pending 仅属主可看；游客图无属主 → 对所有人不可直出。
-	if img.Status == "pending" && !acc.IsOwner {
+	// pending 仅属主/管理员可看；游客图无属主 → 对非管理员不可直出。
+	if img.Status == "pending" && !privileged {
 		return &Deny{Kind: DenyRemoved}
 	}
-	if img.Visibility == "private" && !acc.IsOwner {
+	if img.Visibility == "private" && !privileged {
 		return &Deny{Kind: DenyPrivate}
 	}
-	if img.ExpiresAt != nil && img.ExpiresAt.Before(time.Now()) {
+	if img.ExpiresAt != nil && img.ExpiresAt.Before(time.Now()) && !acc.IsAdmin {
 		return &Deny{Kind: DenyExpired}
 	}
-	if img.MaxViews > 0 && img.ViewsServed >= img.MaxViews && !acc.IsOwner {
+	if img.MaxViews > 0 && img.ViewsServed >= img.MaxViews && !privileged {
 		return &Deny{Kind: DenyExhausted}
 	}
-	if hasPassword(img) && !acc.PasswordOK {
+	if hasPassword(img) && !acc.PasswordOK && !privileged {
 		return &Deny{Kind: DenyPassword}
 	}
-	if s.stats != nil && !stats.HotlinkAllowed(s.stats.Hotlink(), acc.RefererHost, s.ownHost) {
+	if !privileged && s.stats != nil && !stats.HotlinkAllowed(s.stats.Hotlink(), acc.RefererHost, s.ownHost) {
 		return &Deny{Kind: DenyHotlink}
 	}
-	if img.UserID != nil {
+	if img.UserID != nil && !acc.IsAdmin {
 		if err := bandwidth.Check(s.db, *img.UserID); errors.Is(err, bandwidth.ErrExceeded) {
 			return &Deny{Kind: DenyBandwidth}
 		} else if err != nil {

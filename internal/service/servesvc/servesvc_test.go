@@ -52,6 +52,39 @@ func TestAuthorizePrivate(t *testing.T) {
 	if d := svc.Authorize(got, Access{IsOwner: true, PasswordOK: true}); d != nil {
 		t.Fatalf("owner: %v", d)
 	}
+	if d := svc.Authorize(got, Access{IsAdmin: true, PasswordOK: true}); d != nil {
+		t.Fatalf("admin: %v", d)
+	}
+}
+
+func TestAuthorizeAdminBypassesPending(t *testing.T) {
+	db := model.TestDB(t)
+	svc := New(db, nil, "")
+	u := &model.User{Username: "owner2", Email: "o2@x.li", GroupID: 1, Status: "active"}
+	if err := db.Create(u).Error; err != nil {
+		t.Fatal(err)
+	}
+	f := &model.File{Hash: "h2b", StoragePolicyID: 1, Path: "p2b", Size: 10, RefCount: 1}
+	if err := db.Create(f).Error; err != nil {
+		t.Fatal(err)
+	}
+	img := &model.Image{
+		Key: "pendkey000001", FileID: f.ID, Name: "p.png", Ext: "png",
+		Visibility: "public", Status: "pending", UserID: &u.ID,
+	}
+	if err := db.Create(img).Error; err != nil {
+		t.Fatal(err)
+	}
+	got, _ := svc.Find("pendkey000001")
+	if d := svc.Authorize(got, Access{}); d == nil || d.Kind != DenyRemoved {
+		t.Fatalf("anon pending want removed, got %v", d)
+	}
+	if d := svc.Authorize(got, Access{IsOwner: true}); d != nil {
+		t.Fatalf("owner pending: %v", d)
+	}
+	if d := svc.Authorize(got, Access{IsAdmin: true}); d != nil {
+		t.Fatalf("admin pending: %v", d)
+	}
 }
 
 func TestAuthorizeExpired(t *testing.T) {
