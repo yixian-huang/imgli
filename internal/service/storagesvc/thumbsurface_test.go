@@ -54,3 +54,23 @@ func TestThumbKeyCandidatesPublicIncludesLegacy(t *testing.T) {
 		}
 	}
 }
+
+// TestThumbKeyEmptySurfaceIsPublic 空 surface ≈ public（migrateSurface / 重挂扫描同口径）。
+// 若按 fail-closed 当成 private，公开图的 /t 会去 private/.thumbs 404。
+func TestThumbKeyEmptySurfaceIsPublic(t *testing.T) {
+	empty := ThumbKey("", "h")
+	pub := ThumbKey(model.SurfacePublic, "h")
+	if empty != pub {
+		t.Errorf("空 surface ThumbKey=%q want %q", empty, pub)
+	}
+	cEmpty := ThumbKeyCandidates("", "h")
+	cPub := ThumbKeyCandidates(model.SurfacePublic, "h")
+	if len(cEmpty) != len(cPub) {
+		t.Fatalf("空 surface 候选数=%d want %d %v", len(cEmpty), len(cPub), cEmpty)
+	}
+	for i := range cPub {
+		if cEmpty[i] != cPub[i] {
+			t.Errorf("候选[%d]=%q want %q", i, cEmpty[i], cPub[i])
+		}
+	}
+}

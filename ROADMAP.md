@@ -3,7 +3,16 @@
 > **Planning SSOT is internal** (`imgli/roadmap` in the project knowledge base).  
 > This file is a **public, de-sensitized mirror** for contributors. Prefer GitHub Issues + Milestones for execution.
 
-## Latest shipped — v0.9.15 · MinIO/S3 first-load thumbs
+## Latest shipped — v0.9.16 · Admin thumbs NOT FOUND
+
+Release: https://github.com/yixian-huang/imgli/releases/tag/v0.9.16
+
+Admin `/t` no longer draws `NOT FOUND` for public photos that still load in the
+owner's library (CDN fallback + empty surface as public). Logged-in admins can
+preview other users' private/pending thumbs. See
+[CHANGELOG](CHANGELOG.md#0916---2026-08-20).
+
+## Previous — v0.9.15 · MinIO/S3 first-load thumbs
 
 Release: https://github.com/yixian-huang/imgli/releases/tag/v0.9.15
 
