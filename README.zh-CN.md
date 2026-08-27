@@ -70,7 +70,8 @@
   可选 **OIDC** SSO 与出站 **Webhook**；PicGo/Typora/VS Code
   ([指南](docs/picgo.md))、[ShareX](docs/integrations/sharex.md) /
   [uPic](docs/integrations/upic.md)（[索引](docs/integrations/README.md)）。
-- **变换**:受控缩略 `/t/{key}?w=200|400|800`。
+- **HEIC / HEIF**：官方 Docker 镜像解码 HEIC/HEIF 上传并存储为 JPEG（随后走现有处理管线，含可选原图 WebP）。GitHub 纯 Go 归档返回 `heic_unsupported`。
+- **变换**:受控缩略 `/t/{key}?w=120|200|240|400|480|800|960|1600`。
 - **运维（v0.6+）**:管理后台 **跨策略存储搬迁**（进度/续跑/size 校验；见
   [docs/storage-migrate.md](docs/storage-migrate.md)）；**版本展示 + 探测更新 +
   一键二进制升级**（Docker 请换镜像）；**生命周期清理**（dry-run + 确认执行）。

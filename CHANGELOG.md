@@ -10,6 +10,16 @@ separate version in `go.mod` or `web/package.json`.
 
 ## [Unreleased]
 
+Theme: **HEIC ingest · more `/t` widths**.
+
+### Added
+
+- **HEIC / HEIF upload (vips + libheif):** decoded and stored as JPEG (then the existing processing pipeline, including optional original WebP). New default/guest groups allow `heic` and `heif`. Pure-Go binaries return `415 heic_unsupported`. Existing groups are unchanged.
+
+### Changed
+
+- **`/t?w=` whitelist:** `120`, `200`, `240`, `400`, `480`, `800`, `960`, `1600`. 200/400/800 keep working.
+
 ## [0.9.16] - 2026-08-20
 
 Theme: **Admin thumbs NOT FOUND**.

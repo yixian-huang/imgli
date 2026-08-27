@@ -10,8 +10,8 @@ RUN npm run build
 
 FROM golang:1.26-alpine AS build
 WORKDIR /src
-# cgo + pkg-config + vips 头文件（与 -tags vips 配套）
-RUN apk add --no-cache build-base pkgconf vips-dev
+# cgo + pkg-config + vips 头文件（与 -tags vips 配套）；libheif-dev 供 HEIF loader
+RUN apk add --no-cache build-base pkgconf vips-dev libheif-dev
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
@@ -25,8 +25,9 @@ RUN CGO_ENABLED=1 go build -tags vips \
 
 FROM alpine:3.20
 # 运行时需要 libvips 动态库（与构建期 vips-dev 对应）
+# libheif + vips-heif：官方镜像必须能解码 HEIF（Alpine 3.20 插件拆包）
 # su-exec：entrypoint 以 root 修正绑定挂载属主后降权到 imgli(1000)
-RUN apk add --no-cache ca-certificates tzdata vips su-exec \
+RUN apk add --no-cache ca-certificates tzdata vips libheif vips-heif su-exec \
 	&& adduser -D -u 1000 imgli \
 	&& mkdir -p /data && chown imgli:imgli /data
 COPY --from=build /imgli /usr/local/bin/imgli
