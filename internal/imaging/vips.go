@@ -89,15 +89,11 @@ func ensureVips() error {
 }
 
 // NewVips 返回 libvips Processor。进程级 vips_init 经 sync.Once。
-// Probe 沿用纯 Go 实现(头部解析无 cgo 收益);Thumbnail 用
+// Probe 对 HEIF 走 vips（见 heif_vips.go）；其它格式沿用纯 Go。Thumbnail 用
 // vips_thumbnail_buffer(shrink-on-load)+ vips_webpsave_buffer(Q=80)。
 func NewVips() Processor { return vipsProcessor{} }
 
 func (vipsProcessor) ThumbExt() string { return "webp" }
-
-func (vipsProcessor) Probe(r io.Reader) (Meta, error) {
-	return goProcessor{}.Probe(r)
-}
 
 func (vipsProcessor) Thumbnail(r io.Reader, maxEdge int) ([]byte, error) {
 	if err := ensureVips(); err != nil {
