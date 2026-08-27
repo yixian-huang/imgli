@@ -137,7 +137,7 @@ imgli serve
 Pin a version or install location:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yixian-huang/imgli/main/scripts/install.sh | sh -s -- v0.9.16
+curl -fsSL https://raw.githubusercontent.com/yixian-huang/imgli/main/scripts/install.sh | sh -s -- v0.9.17
 PREFIX=/usr/local/bin curl -fsSL https://raw.githubusercontent.com/yixian-huang/imgli/main/scripts/install.sh | sh
 ```
 
@@ -153,7 +153,7 @@ docker run --rm -p 8686:8686 -v imgli-data:/data \
 # → http://localhost:8686  (first registered user becomes admin)
 ```
 
-Pin a release with `ghcr.io/yixian-huang/imgli:v0.9.16` (see
+Pin a release with `ghcr.io/yixian-huang/imgli:v0.9.17` (see
 [Releases](https://github.com/yixian-huang/imgli/releases)).
 
 ### Docker Compose
@@ -174,7 +174,7 @@ Backup / restore: [`docs/backup.md`](docs/backup.md).
 
 ```bash
 make build          # needs Go ≥ 1.26 and Node ≥ 24
-./imgli version     # git tag via ldflags, e.g. v0.9.16
+./imgli version     # git tag via ldflags, e.g. v0.9.17
 ./imgli serve       # → http://localhost:8686
 ```
 

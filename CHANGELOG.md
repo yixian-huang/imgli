@@ -10,6 +10,8 @@ separate version in `go.mod` or `web/package.json`.
 
 ## [Unreleased]
 
+## [0.9.17] - 2026-08-27
+
 Theme: **HEIC ingest · more `/t` widths**.
 
 ### Added
@@ -580,7 +582,8 @@ Theme: **Workflow & Trust** — CLI/integrations, share landing, privacy
 - Bilingual UI (中文/English), PWA, dark mode, text watermark, admin audit logs.
 - Docker Compose quick start and GitHub Actions CI (Go matrix, web, e2e smoke).
 
-[Unreleased]: https://github.com/yixian-huang/imgli/compare/v0.9.16...HEAD
+[Unreleased]: https://github.com/yixian-huang/imgli/compare/v0.9.17...HEAD
+[0.9.17]: https://github.com/yixian-huang/imgli/compare/v0.9.16...v0.9.17
 [0.9.16]: https://github.com/yixian-huang/imgli/compare/v0.9.15...v0.9.16
 [0.9.15]: https://github.com/yixian-huang/imgli/compare/v0.9.14...v0.9.15
 [0.9.14]: https://github.com/yixian-huang/imgli/compare/v0.9.13...v0.9.14

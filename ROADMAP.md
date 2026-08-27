@@ -3,7 +3,16 @@
 > **Planning SSOT is internal** (`imgli/roadmap` in the project knowledge base).  
 > This file is a **public, de-sensitized mirror** for contributors. Prefer GitHub Issues + Milestones for execution.
 
-## Latest shipped — v0.9.16 · Admin thumbs NOT FOUND
+## Latest shipped — v0.9.17 · HEIC ingest · more `/t` widths
+
+Release: https://github.com/yixian-huang/imgli/releases/tag/v0.9.17
+
+HEIC/HEIF uploads transcode to JPEG (then existing processing) on vips + libheif.
+Pure-Go binaries return `415 heic_unsupported`. `/t?w=` accepts 120, 200, 240,
+400, 480, 800, 960, 1600. See
+[CHANGELOG](CHANGELOG.md#0917---2026-08-27).
+
+## Previous — v0.9.16 · Admin thumbs NOT FOUND
 
 Release: https://github.com/yixian-huang/imgli/releases/tag/v0.9.16
 
