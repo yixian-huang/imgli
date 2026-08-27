@@ -9,8 +9,10 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/yixian-huang/imgli/internal/imaging"
 	"github.com/yixian-huang/imgli/internal/model"
 	"github.com/yixian-huang/imgli/internal/service/bandwidth"
+	"github.com/yixian-huang/imgli/internal/service/settings"
 	"github.com/yixian-huang/imgli/internal/service/storagesvc"
 )
 
@@ -59,16 +61,58 @@ func (s *Service) Save(ctx context.Context, tmpPath, filename string, u *model.U
 		return nil, ErrFileTooLarge
 	}
 
-	// 探测元信息（独立打开）
-	meta, err := s.probe(tmpPath)
+	// HEIF：allowlist 用原始 heic/heif，转 JPEG 后再 burn/hash。嗅探走文件前缀，不依赖 Probe。
+	prefix, err := readPrefix(tmpPath, 64)
 	if err != nil {
-		return nil, ErrInvalidImage
+		return nil, err
 	}
-	if meta.Width > MaxDimension || meta.Height > MaxDimension {
-		return nil, ErrDimensionOver
-	}
-	if !extAllowed(group.AllowedExts, meta.Ext) {
-		return nil, ErrExtNotAllowed
+	heif := imaging.SniffHEIF(prefix)
+	var meta imaging.Meta
+	if heif {
+		allow := imaging.HEIFAllowExt(filename)
+		if !extAllowed(group.AllowedExts, allow) {
+			return nil, ErrExtNotAllowed
+		}
+		if !imaging.HeicDecodeAvailable() {
+			return nil, ErrHeicUnavailable
+		}
+		raw, rerr := os.ReadFile(tmpPath)
+		if rerr != nil {
+			return nil, rerr
+		}
+		var proc Processing
+		if gerr := s.st.Get(model.SettingProcessing, &proc); gerr != nil {
+			if !errors.Is(gerr, settings.ErrNotFound) {
+				return nil, gerr
+			}
+			proc = DefaultProcessing()
+		}
+		jpeg, jmeta, jerr := imaging.DecodeHEIFToJPEG(raw, proc.EffectiveJPEGQuality())
+		if errors.Is(jerr, imaging.ErrHeicUnavailable) {
+			return nil, ErrHeicUnavailable
+		}
+		if jerr != nil {
+			return nil, ErrInvalidImage
+		}
+		if jmeta.Width > MaxDimension || jmeta.Height > MaxDimension {
+			return nil, ErrDimensionOver
+		}
+		if err := os.WriteFile(tmpPath, jpeg, 0o600); err != nil {
+			return nil, err
+		}
+		meta = jmeta
+		size = int64(len(jpeg))
+	} else {
+		meta, err = s.probe(tmpPath)
+		if err != nil {
+			return nil, ErrInvalidImage
+		}
+		if meta.Width > MaxDimension || meta.Height > MaxDimension {
+			return nil, ErrDimensionOver
+		}
+		if !extAllowed(group.AllowedExts, meta.Ext) {
+			return nil, ErrExtNotAllowed
+		}
 	}
 
 	// D-② 处理管线:单次解码→缩放/水印→末次编码(keep|webp),hash 之前烧录(与秒传去重兼容)。

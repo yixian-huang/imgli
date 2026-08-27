@@ -48,6 +48,23 @@ func (s *Service) uniqueKey(tx *gorm.DB) (string, error) {
 	return "", errors.New("upload: 无法生成唯一 key")
 }
 
+func readPrefix(path string, n int) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	buf := make([]byte, n)
+	got, err := io.ReadFull(f, buf)
+	if err == io.ErrUnexpectedEOF || err == io.EOF {
+		return buf[:got], nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return buf, nil
+}
+
 func (s *Service) probe(p string) (imaging.Meta, error) {
 	f, err := os.Open(p)
 	if err != nil {

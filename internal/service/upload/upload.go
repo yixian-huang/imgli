@@ -29,6 +29,7 @@ var (
 	ErrGuestNotSupported = errors.New("upload: 游客上传暂未开放")
 	ErrPolicyNotAllowed  = errors.New("upload: 存储策略不可用")
 	ErrAlbumNotFound     = errors.New("upload: 相册不存在")
+	ErrHeicUnavailable   = errors.New("upload: 当前构建无法解码 HEIC")
 )
 
 // Opts 上传选项。零值=完全走用户偏好与组默认。
