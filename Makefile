@@ -14,7 +14,8 @@ web-ci:
 build-go:
 	go build -ldflags "-X github.com/yixian-huang/imgli/internal/version.Version=$(VERSION)" -o imgli ./cmd/imgli
 
-# libvips 构建:WebP 缩略图 + 原图转 WebP（需本机 pkg-config vips + cgo；交叉编译请在目标机本机构建）。
+# libvips 构建:WebP 缩略图 + 原图转 WebP + HEIC 解码。HEIC 需要 libheif（不是仅 WebP）；
+# 需本机 pkg-config vips + cgo；交叉编译请在目标机本机构建。
 build-vips: web
 	CGO_ENABLED=1 go build -tags vips -ldflags "-X github.com/yixian-huang/imgli/internal/version.Version=$(VERSION)-vips" -o imgli ./cmd/imgli
 
@@ -39,7 +40,7 @@ test:
 
 # libvips 手测/自营站点门禁(CI 默认纯 Go；本机需 libvips 开发包)。
 test-vips:
-	CGO_ENABLED=1 go test -tags vips ./internal/imaging/ -count=1
+	CGO_ENABLED=1 go test -tags vips ./internal/imaging/ ./internal/service/upload/ -count=1
 
 test-web:
 	cd web && npm test

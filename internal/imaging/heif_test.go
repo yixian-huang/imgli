@@ -39,8 +39,26 @@ func TestHEIFAllowExt(t *testing.T) {
 	if g := HEIFAllowExt("a.heif"); g != "heif" {
 		t.Errorf("heif → %q", g)
 	}
+	if g := HEIFAllowExt("x.HEIF"); g != "heif" {
+		t.Errorf("HEIF → %q", g)
+	}
 	if g := HEIFAllowExt("noext"); g != "heic" {
 		t.Errorf("none → %q", g)
+	}
+}
+
+func TestSideOverLimit(t *testing.T) {
+	if !sideOverLimit(30001, 1, 30000) {
+		t.Error("width over")
+	}
+	if !sideOverLimit(1, 30001, 30000) {
+		t.Error("height over")
+	}
+	if sideOverLimit(30000, 30000, 30000) {
+		t.Error("equal is allowed")
+	}
+	if sideOverLimit(1, 1, 30000) {
+		t.Error("tiny is allowed")
 	}
 }
 

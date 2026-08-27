@@ -11,6 +11,16 @@ import (
 // ErrHeicUnavailable 魔数已认出 HEIF，但本进程没有可用的 HEIF 解码器。
 var ErrHeicUnavailable = errors.New("imaging: HEIC requires libvips+libheif")
 
+// ErrDimensionOver header 单边超过 MaxSidePixels。DecodeHEIFToJPEG 在 heif_to_jpeg 之前返回。
+var ErrDimensionOver = errors.New("imaging: image dimension exceeds limit")
+
+// MaxSidePixels 全量 HEIF 转码前的单边上限，与 upload.MaxDimension 对齐。测试可下调。
+var MaxSidePixels = 30000
+
+func sideOverLimit(w, h, max int) bool {
+	return w > max || h > max
+}
+
 var heifBrands = map[string]struct{}{
 	"heic": {}, "heix": {}, "hevc": {}, "hevx": {},
 	"heim": {}, "heis": {}, "hevm": {}, "hevs": {},

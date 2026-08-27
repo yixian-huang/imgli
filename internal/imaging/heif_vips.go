@@ -93,6 +93,16 @@ func DecodeHEIFToJPEG(data []byte, jpegQuality int) ([]byte, Meta, error) {
 	if err := ensureVips(); err != nil {
 		return nil, Meta{}, ErrHeicUnavailable
 	}
+	pmeta, err := ProbeHEIF(data)
+	if err != nil {
+		return nil, Meta{}, err
+	}
+	if sideOverLimit(pmeta.Width, pmeta.Height, MaxSidePixels) {
+		return nil, Meta{}, ErrDimensionOver
+	}
+	if heifTranscodeHook != nil {
+		heifTranscodeHook()
+	}
 	q := clampJPEGQuality(jpegQuality)
 	in := C.CBytes(data)
 	defer C.free(in)
@@ -111,7 +121,10 @@ func DecodeHEIFToJPEG(data []byte, jpegQuality int) ([]byte, Meta, error) {
 	return buf, Meta{Width: int(w), Height: int(h), MIME: "image/jpeg", Ext: "jpg"}, nil
 }
 
-func probeHEIF(data []byte) (Meta, error) {
+// heifTranscodeHook 在 heif_to_jpeg 之前调用；生产为 nil，测试用来确认超限路径未转码。
+var heifTranscodeHook func()
+
+func ProbeHEIF(data []byte) (Meta, error) {
 	if !HeicDecodeAvailable() {
 		return Meta{}, ErrHeicUnavailable
 	}
@@ -142,7 +155,7 @@ func (vipsProcessor) Probe(r io.Reader) (Meta, error) {
 		if rerr != nil {
 			return Meta{}, ErrUnsupported
 		}
-		return probeHEIF(data)
+		return ProbeHEIF(data)
 	}
 	return goProcessor{}.Probe(rest)
 }

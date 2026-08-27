@@ -14,10 +14,10 @@ import (
 	"github.com/yixian-huang/imgli/internal/task"
 )
 
-const (
-	ThumbMaxEdge = 400
-	MaxDimension = 30000 // 单边像素上限，防解压炸弹
-)
+const ThumbMaxEdge = 400
+
+// MaxDimension 单边像素上限，防解压炸弹。HEIF 在 DecodeHEIFToJPEG 前用 header 检查。测试可下调。
+var MaxDimension = 30000
 
 var (
 	ErrExtNotAllowed     = errors.New("upload: 文件类型不被允许")

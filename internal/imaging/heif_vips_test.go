@@ -39,6 +39,26 @@ func TestDecodeHEIFToJPEGRoundtrip(t *testing.T) {
 	}
 }
 
+func TestDecodeHEIFToJPEGRejectsOversizeFromProbe(t *testing.T) {
+	if !HeicDecodeAvailable() {
+		t.Skip("no HEIF loader in this libvips")
+	}
+	src := makeTinyHEIF(t)
+	old := MaxSidePixels
+	MaxSidePixels = 1
+	t.Cleanup(func() { MaxSidePixels = old })
+	var transcoded int
+	heifTranscodeHook = func() { transcoded++ }
+	t.Cleanup(func() { heifTranscodeHook = nil })
+	_, _, err := DecodeHEIFToJPEG(src, 90)
+	if !errors.Is(err, ErrDimensionOver) {
+		t.Fatalf("err=%v, want ErrDimensionOver", err)
+	}
+	if transcoded != 0 {
+		t.Fatal("heif_to_jpeg must not run after header oversize")
+	}
+}
+
 func TestVipsProbeHEIF(t *testing.T) {
 	if !HeicDecodeAvailable() {
 		_, err := NewVips().Probe(bytes.NewReader(ftypBox("heic")))

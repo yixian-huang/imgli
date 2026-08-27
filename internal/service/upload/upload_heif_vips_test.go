@@ -4,6 +4,7 @@ package upload
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -32,6 +33,24 @@ func TestSaveHEIFTranscodesToJPEGOrWebP(t *testing.T) {
 	}
 	if strings.HasSuffix(strings.ToLower(res.Image.Ext), "heic") {
 		t.Errorf("stored ext still heic: %q", res.Image.Ext)
+	}
+}
+
+func TestSaveHEIFDimensionOverFromProbe(t *testing.T) {
+	if !imaging.HeicDecodeAvailable() {
+		t.Skip("no HEIF loader")
+	}
+	old := MaxDimension
+	MaxDimension = 1
+	t.Cleanup(func() { MaxDimension = old })
+	svc, u, _ := setup(t)
+	if err := svc.db.Model(&model.UserGroup{}).Where("id = ?", 1).
+		Update("allowed_exts", `["png","jpg","jpeg","gif","webp","heic","heif"]`).Error; err != nil {
+		t.Fatal(err)
+	}
+	_, err := svc.Save(context.Background(), writeTinyHEIF(t), "IMG.HEIC", u, Opts{Visibility: "public"}, "")
+	if !errors.Is(err, ErrDimensionOver) {
+		t.Fatalf("err=%v, want ErrDimensionOver", err)
 	}
 }
 

@@ -80,6 +80,16 @@ func (s *Service) Save(ctx context.Context, tmpPath, filename string, u *model.U
 		if rerr != nil {
 			return nil, rerr
 		}
+		pmeta, perr := imaging.ProbeHEIF(raw)
+		if errors.Is(perr, imaging.ErrHeicUnavailable) {
+			return nil, ErrHeicUnavailable
+		}
+		if perr != nil {
+			return nil, ErrInvalidImage
+		}
+		if pmeta.Width > MaxDimension || pmeta.Height > MaxDimension {
+			return nil, ErrDimensionOver
+		}
 		var proc Processing
 		if gerr := s.st.Get(model.SettingProcessing, &proc); gerr != nil {
 			if !errors.Is(gerr, settings.ErrNotFound) {
@@ -90,6 +100,9 @@ func (s *Service) Save(ctx context.Context, tmpPath, filename string, u *model.U
 		jpeg, jmeta, jerr := imaging.DecodeHEIFToJPEG(raw, proc.EffectiveJPEGQuality())
 		if errors.Is(jerr, imaging.ErrHeicUnavailable) {
 			return nil, ErrHeicUnavailable
+		}
+		if errors.Is(jerr, imaging.ErrDimensionOver) {
+			return nil, ErrDimensionOver
 		}
 		if jerr != nil {
 			return nil, ErrInvalidImage
