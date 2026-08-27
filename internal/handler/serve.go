@@ -24,9 +24,6 @@ import (
 	"github.com/yixian-huang/imgli/internal/storage"
 )
 
-// 受控边长白名单（/t?w=）；其它值 400。
-var allowedThumbWidths = map[int]struct{}{200: {}, 400: {}, 800: {}}
-
 // errThumbGen 标记单次 ?w= 生成失败，调用方回退默认 thumb（非存储/IO 故障）。
 var errThumbGen = errors.New("serve: width thumb generate failed")
 
@@ -274,7 +271,7 @@ func (h *ServeHandlers) Original(w http.ResponseWriter, r *http.Request) {
 }
 
 // Thumbnail GET /t/{name} —— 缩略图（.webp 优先,回退 .jpg）。
-// 可选 ?w=200|400|800：白名单边长变体，磁盘缓存键与默认 thumb 隔离。
+// 可选 ?w=：白名单边长变体（AllowedThumbWidths），磁盘缓存键与默认 thumb 隔离。
 func (h *ServeHandlers) Thumbnail(w http.ResponseWriter, r *http.Request) {
 	img, ok := h.lookupServable(w, r)
 	if !ok {
@@ -290,15 +287,15 @@ func (h *ServeHandlers) Thumbnail(w http.ResponseWriter, r *http.Request) {
 		n, err := strconv.Atoi(ws)
 		if err != nil {
 			if strings.Contains(r.Header.Get("Accept"), "application/json") {
-				Fail(w, http.StatusBadRequest, CodeInvalidRequest, "w 须为 200、400 或 800")
+				Fail(w, http.StatusBadRequest, CodeInvalidRequest, "w 须为 "+ThumbWidthHint())
 			} else {
 				h.placeholder(w, r, http.StatusBadRequest, "BAD WIDTH")
 			}
 			return
 		}
-		if _, ok := allowedThumbWidths[n]; !ok {
+		if !ThumbWidthAllowed(n) {
 			if strings.Contains(r.Header.Get("Accept"), "application/json") {
-				Fail(w, http.StatusBadRequest, CodeInvalidRequest, "w 须为 200、400 或 800")
+				Fail(w, http.StatusBadRequest, CodeInvalidRequest, "w 须为 "+ThumbWidthHint())
 			} else {
 				h.placeholder(w, r, http.StatusBadRequest, "BAD WIDTH")
 			}

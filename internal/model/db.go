@@ -216,7 +216,7 @@ func Seed(db *gorm.DB) error {
 			// 月流量硬顶 5 GiB（产品裁决 Free）；存储与流量独立。
 			BandwidthQuotaMonth: FreeBandwidthQuotaMonth,
 			RatePerMinute:       20, RatePerHour: 200, RatePerDay: 1000,
-			AllowedExts:      []string{"png", "jpg", "jpeg", "gif", "webp"},
+			AllowedExts:      []string{"png", "jpg", "jpeg", "gif", "webp", "heic", "heif"},
 			AllowedPolicyIDs: []uint64{1},
 		}
 		if err := firstOrCreateBy(tx, &UserGroup{}, "is_default = ?", true, &defGroup); err != nil {
@@ -226,7 +226,7 @@ func Seed(db *gorm.DB) error {
 			Name: "游客组", IsGuest: true,
 			StorageQuota: 0, MaxFileSize: 5 << 20, // 原型游客态：≤5MB、每日 3 张
 			RatePerMinute: 3, RatePerHour: 3, RatePerDay: 3,
-			AllowedExts:      []string{"png", "jpg", "jpeg", "gif", "webp"},
+			AllowedExts:      []string{"png", "jpg", "jpeg", "gif", "webp", "heic", "heif"},
 			AllowedPolicyIDs: []uint64{1},
 			// 游客默认非永久：1 天默认 / 最长 7 天 / 超龄硬清 7 天。
 			DefaultExpiresIn: 86400,

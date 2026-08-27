@@ -224,6 +224,7 @@ func (s *Service) GetSettings() (map[string]any, error) {
 		// 构建能力：前端据此禁用「转 WebP」等仅 vips 可用的选项。
 		"processing_capabilities": map[string]any{
 			"webp_encode": imaging.WebPEncodeAvailable(),
+			"heic_decode": imaging.HeicDecodeAvailable(),
 		},
 		"announcement":           ann,
 		"footer":                 foot,

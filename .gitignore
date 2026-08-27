@@ -26,3 +26,6 @@ internal/imaging/fonts/*.full.otf
 # local visual QA / playwright MCP
 .playwright-mcp/
 visual-*.png
+
+# SDD / git worktrees (local only)
+.worktrees/

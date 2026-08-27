@@ -79,6 +79,8 @@ export interface SystemHealth {
     imaging_backend?: string
     /** original WebP encode (vips builds) */
     webp_encode?: boolean
+    /** HEIC/HEIF decode (vips + libheif) */
+    heic_decode?: boolean
     /** thumbnail file extension: jpg | webp */
     thumb_ext?: string
   }

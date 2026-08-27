@@ -20,4 +20,5 @@ export default {
   requestFailed: 'Request failed',
   expires_over_group: 'Expiry exceeds your group limit (permanent not allowed or over max)',
   max_views_over_group: 'Max views exceeds your group limit (unlimited not allowed or over max)',
+  heic_unsupported: 'This build cannot decode HEIC. Use the official Docker image or make build-vips (libheif required).',
 }

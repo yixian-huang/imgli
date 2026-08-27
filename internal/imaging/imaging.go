@@ -137,7 +137,14 @@ var formatMeta = map[string]struct{ mime, ext string }{
 func (goProcessor) ThumbExt() string { return "jpg" }
 
 func (goProcessor) Probe(r io.Reader) (Meta, error) {
-	cfg, format, err := image.DecodeConfig(r)
+	prefix, rest, err := readProbePrefix(r)
+	if err != nil {
+		return Meta{}, ErrUnsupported
+	}
+	if SniffHEIF(prefix) {
+		return Meta{}, ErrHeicUnavailable
+	}
+	cfg, format, err := image.DecodeConfig(rest)
 	if err != nil {
 		return Meta{}, ErrUnsupported
 	}

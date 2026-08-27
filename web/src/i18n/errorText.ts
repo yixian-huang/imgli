@@ -7,7 +7,7 @@ import { useGlobal } from '../store'
 //   无映射再回落后端 message(该 code 无英文映射时兜底)。
 export function errorText(code: string | undefined, fallback: string): string {
   // 组限制等有专用 code：中英都优先用 i18n，避免 en 看到中文后端原文。
-  if (code === 'expires_over_group' || code === 'max_views_over_group') {
+  if (code === 'expires_over_group' || code === 'max_views_over_group' || code === 'heic_unsupported') {
     const key = `errors.${code}`
     const msg = t(key)
     if (msg !== key) return msg

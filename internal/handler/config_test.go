@@ -85,6 +85,18 @@ func TestConfigDefaults(t *testing.T) {
 	if len(body.Guest.AllowedExts) == 0 {
 		t.Errorf("guest.allowed_exts 为空")
 	}
+	hasHeic, hasHeif := false, false
+	for _, e := range body.Guest.AllowedExts {
+		if e == "heic" {
+			hasHeic = true
+		}
+		if e == "heif" {
+			hasHeif = true
+		}
+	}
+	if !hasHeic || !hasHeif {
+		t.Errorf("guest.allowed_exts 缺 heic/heif: %v", body.Guest.AllowedExts)
+	}
 
 	// 公开统计默认关闭（自托管零配置不展示数字）
 	if body.PublicStats == nil {

@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/yixian-huang/imgli/internal/config"
+	"github.com/yixian-huang/imgli/internal/imaging"
 	"github.com/yixian-huang/imgli/internal/model"
 	"github.com/yixian-huang/imgli/internal/service/settings"
 )
@@ -381,5 +382,39 @@ func TestUploadURLAnonGuestDisabledSkipsFetch(t *testing.T) {
 	}
 	if fetched {
 		t.Error("游客关闭应在抓取前 403，不应向远程发起请求")
+	}
+}
+
+func heicFtyp() []byte {
+	b := make([]byte, 16)
+	b[3] = 16
+	copy(b[4:8], "ftyp")
+	copy(b[8:12], "heic")
+	return b
+}
+
+// TestUploadHEICUnsupportedOnPureGo H2：组已允许 heic 时，纯 Go 构建对 16 字节
+// ftyp 夹具返回 415 heic_unsupported（不是 ext_not_allowed / invalid_request）。
+func TestUploadHEICUnsupportedOnPureGo(t *testing.T) {
+	if imaging.HeicDecodeAvailable() {
+		t.Skip("vips+heif")
+	}
+	s := newUploadTestServer(t)
+	tok := uploadToken(t, s)
+	if err := s.opts.DB.Model(&model.UserGroup{}).Where("is_default = ?", true).
+		Update("allowed_exts", `["png","jpg","jpeg","gif","webp","heic","heif"]`).Error; err != nil {
+		t.Fatal(err)
+	}
+	req, _ := uploadReq(t, "file", "a.heic", heicFtyp())
+	req.Header.Set("Authorization", "Bearer "+tok)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnsupportedMediaType {
+		t.Fatalf("status = %d, want 415: %s", rec.Code, rec.Body.String())
+	}
+	var e env
+	json.Unmarshal(rec.Body.Bytes(), &e)
+	if code(t, e) != "heic_unsupported" {
+		t.Errorf("code = %q, want heic_unsupported; body=%s", code(t, e), rec.Body.String())
 	}
 }

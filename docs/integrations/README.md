@@ -54,7 +54,7 @@ imgli import-dir -visibility private ./in
 
 | Surface | Notes |
 |---------|--------|
-| `GET /t/{key}.jpg?w=200\|400\|800` | Whitelisted thumbnail widths |
+| `GET /t/{key}.jpg?w=120\|200\|240\|400\|480\|800\|960\|1600` | Whitelisted thumbnail widths |
 | `POST /api/v1/s/{key}/unlock` | Password-protected share unlock |
 | `GET /api/v1/a/{id}` · `/a/{id}/images` | Public album visitor API |
 | Outbound webhooks | Admin `GET/PUT /api/v1/admin/webhooks` |

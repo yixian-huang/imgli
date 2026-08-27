@@ -62,6 +62,8 @@ func failUpload(w http.ResponseWriter, err error) {
 		Fail(w, http.StatusTooManyRequests, CodeBandwidthExceeded, "本月流量已用尽")
 	case errors.Is(err, upload.ErrExtNotAllowed):
 		Fail(w, http.StatusUnsupportedMediaType, CodeExtNotAllowed, "文件类型不被允许")
+	case errors.Is(err, upload.ErrHeicUnavailable):
+		Fail(w, http.StatusUnsupportedMediaType, CodeHeicUnsupported, "当前构建无法解码 HEIC，请使用官方 Docker 镜像或 make build-vips（需 libheif）")
 	case errors.Is(err, upload.ErrDimensionOver):
 		Fail(w, http.StatusBadRequest, CodeInvalidRequest, "图片尺寸超过像素上限")
 	case errors.Is(err, upload.ErrInvalidImage):

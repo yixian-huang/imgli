@@ -56,6 +56,7 @@ func (h *AdminHandlers) GetSystemHealth(w http.ResponseWriter, r *http.Request) 
 			// 图像后端：Docker 默认发行带 vips；纯 Go 二进制为 pure-go。
 			"imaging_backend":   imaging.Backend(),
 			"webp_encode":       imaging.WebPEncodeAvailable(),
+			"heic_decode":       imaging.HeicDecodeAvailable(),
 			"thumb_ext":         imaging.New().ThumbExt(),
 		},
 	})

@@ -642,3 +642,44 @@ func TestSaveInstantExpiresAt(t *testing.T) {
 		t.Fatal("秒传 ExpiresAt 应写入")
 	}
 }
+
+func writeHEIFFtyp(t *testing.T) string {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "x.heic")
+	b := make([]byte, 16)
+	b[3] = 16
+	copy(b[4:8], "ftyp")
+	copy(b[8:12], "heic")
+	if err := os.WriteFile(p, b, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+func TestSaveHEIFUnavailableOnPureGo(t *testing.T) {
+	if imaging.HeicDecodeAvailable() {
+		t.Skip("vips+heif")
+	}
+	svc, u, _ := setup(t)
+	// Allowlist first: group must permit heic before unavailable can surface.
+	if err := svc.db.Model(&model.UserGroup{}).Where("id = ?", 1).
+		Update("allowed_exts", `["png","jpg","jpeg","gif","webp","heic","heif"]`).Error; err != nil {
+		t.Fatal(err)
+	}
+	_, err := svc.Save(context.Background(), writeHEIFFtyp(t), "IMG.HEIC", u, Opts{Visibility: "public"}, "")
+	if !errors.Is(err, ErrHeicUnavailable) {
+		t.Errorf("err=%v, want ErrHeicUnavailable", err)
+	}
+}
+
+func TestSaveHEIFExtNotAllowed(t *testing.T) {
+	svc, u, _ := setup(t)
+	if err := svc.db.Model(&model.UserGroup{}).Where("id = ?", 1).
+		Update("allowed_exts", `["png","jpg","jpeg","gif","webp"]`).Error; err != nil {
+		t.Fatal(err)
+	}
+	_, err := svc.Save(context.Background(), writeHEIFFtyp(t), "IMG.HEIC", u, Opts{Visibility: "public"}, "")
+	if !errors.Is(err, ErrExtNotAllowed) {
+		t.Errorf("err=%v, want ErrExtNotAllowed", err)
+	}
+}

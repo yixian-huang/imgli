@@ -132,7 +132,10 @@ it('新建组:全量 body POST', async () => {
   await userEvent.type(screen.getByLabelText('组名'), '试验组')
   await userEvent.click(screen.getByRole('button', { name: '保存' }))
   await waitFor(() => expect((created as { name: string }).name).toBe('试验组'))
-  expect(created).toMatchObject({ allowed_exts: expect.any(Array), allowed_policy_ids: expect.any(Array) })
+  expect(created).toMatchObject({
+    allowed_exts: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'heif'],
+    allowed_policy_ids: expect.any(Array),
+  })
 })
 
 it('删除 VIP:两击后 DELETE', async () => {

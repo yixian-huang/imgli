@@ -92,6 +92,7 @@ it('失败码映射 retryable，重试重置回队列', async () => {
   expect(retryableCode('rate_limited')).toBe(true)
   expect(retryableCode('quota_exceeded')).toBe(false)
   expect(retryableCode('ext_not_allowed')).toBe(false)
+  expect(retryableCode('heic_unsupported')).toBe(false)
 
   useUploadQueue.getState().addFiles([makeFile('a.png')], OPTS, LIMITS)
   await flush()

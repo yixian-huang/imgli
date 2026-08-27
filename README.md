@@ -76,7 +76,8 @@ verify upstream docs before migrating.
   PicGo/Typora/VS Code ([guide](docs/picgo.md)),
   [ShareX](docs/integrations/sharex.md) / [uPic](docs/integrations/upic.md)
   ([index](docs/integrations/README.md)).
-- **Transforms** — controlled thumbnails via `/t/{key}?w=200|400|800`.
+- **HEIC / HEIF** — official Docker images decode HEIC/HEIF uploads and store JPEG (then the existing processing pipeline, including optional original WebP). GitHub pure-Go archives reject with `heic_unsupported`.
+- **Transforms** — controlled thumbnails via `/t/{key}?w=120|200|240|400|480|800|960|1600`.
 - **Ops (v0.6+)** — admin **cross-policy storage migrate** (progress / resume /
   size check; [docs/storage-migrate.md](docs/storage-migrate.md)); **version
   display + GitHub update probe + one-click binary upgrade** (Docker = image

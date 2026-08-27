@@ -537,6 +537,7 @@ export interface ProcessingSettings {
 
 export interface ProcessingCapabilities {
   webp_encode: boolean
+  heic_decode: boolean
 }
 
 /** zh/en operator copy; API may still send a legacy plain string. */
@@ -584,7 +585,7 @@ export interface AdminSettings {
   smtp: AdminSMTP
   hotlink: HotlinkSettings
   processing: ProcessingSettings
-  /** Build capabilities (e.g. vips webp encode). Not a stored setting. */
+  /** Build capabilities (e.g. vips webp encode, HEIC decode). Not a stored setting. */
   processing_capabilities?: ProcessingCapabilities
   announcement?: SiteAnnouncement
   footer?: SiteFooter

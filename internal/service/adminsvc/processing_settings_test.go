@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/yixian-huang/imgli/internal/imaging"
 	"github.com/yixian-huang/imgli/internal/model"
 	"github.com/yixian-huang/imgli/internal/service/settings"
 	"github.com/yixian-huang/imgli/internal/service/upload"
@@ -76,5 +77,24 @@ func TestProcessingGetSettingsDefault(t *testing.T) {
 	}
 	if !reflect.DeepEqual(proc, upload.DefaultProcessing()) {
 		t.Errorf("processing = %+v want DefaultProcessing()", proc)
+	}
+}
+
+func TestGetSettingsProcessingCapabilitiesHeicDecode(t *testing.T) {
+	svc := New(model.TestDB(t))
+	m, err := svc.GetSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	caps, ok := m["processing_capabilities"].(map[string]any)
+	if !ok {
+		t.Fatalf("processing_capabilities type = %T", m["processing_capabilities"])
+	}
+	got, ok := caps["heic_decode"]
+	if !ok {
+		t.Fatal("missing heic_decode")
+	}
+	if got != imaging.HeicDecodeAvailable() {
+		t.Errorf("heic_decode = %v, want %v", got, imaging.HeicDecodeAvailable())
 	}
 }

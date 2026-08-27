@@ -262,13 +262,14 @@ export default {
   installShape: 'Install shape',
   imagingBackend: 'Imaging backend',
   webpEncode: 'Original WebP encode',
+  heicDecode: 'HEIC decode',
   thumbExt: 'Thumbnail format',
   capabilityYes: 'Available',
   capabilityNo: 'Unavailable',
   imagingHintVips:
-    'libvips build: WebP thumbnails and Settings → Convert to WebP are available. Official Docker images include this by default.',
+    'libvips build: WebP thumbnails and Settings → Convert to WebP are available. Official Docker images include this by default. HEIC decode still needs libheif (included in the official image).',
   imagingHintPureGo:
-    'Pure-Go build: no original WebP encode. Prefer the official Docker image (vips by default) or make build-vips on the host.',
+    'Pure-Go build: no original WebP encode and cannot decode HEIC. Prefer the official Docker image (vips + libheif by default) or make build-vips on the host (libheif required).',
   imagingSettingsLink: 'Open image processing →',
   requestHost: 'Request Host',
   headerPresent: 'set',

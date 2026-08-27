@@ -16,6 +16,7 @@ import (
 
 var importExts = map[string]struct{}{
 	".jpg": {}, ".jpeg": {}, ".png": {}, ".gif": {}, ".webp": {}, ".bmp": {},
+	".heic": {}, ".heif": {},
 }
 
 func runImportDir(args []string) error {
