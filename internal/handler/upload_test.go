@@ -35,6 +35,7 @@ func TestFailUploadMapping(t *testing.T) {
 		{"quota exceeded", upload.ErrQuotaExceeded, 413, CodeQuotaExceeded},
 		{"bandwidth exceeded", upload.ErrBandwidthExceeded, 429, CodeBandwidthExceeded},
 		{"ext not allowed", upload.ErrExtNotAllowed, 415, CodeExtNotAllowed},
+		{"heic unavailable", upload.ErrHeicUnavailable, 415, CodeHeicUnsupported},
 		{"dimension over", upload.ErrDimensionOver, 400, CodeInvalidRequest},
 		{"invalid image", upload.ErrInvalidImage, 400, CodeInvalidRequest},
 		{"guest not supported", upload.ErrGuestNotSupported, 403, CodeForbidden},
@@ -82,6 +83,32 @@ func TestFailUploadGuestNotSupportedMessage(t *testing.T) {
 	}
 	if envelope.Message != "游客上传暂未开放" {
 		t.Errorf("message = %q, want 游客上传暂未开放", envelope.Message)
+	}
+}
+
+// TestFailUploadHeicUnavailableMessage 纯 Go / 无 libheif 时走 415 heic_unsupported，
+// 文案须与 spec 完全一致（前端 en 靠 i18n，zh 也走同一 code）。
+func TestFailUploadHeicUnavailableMessage(t *testing.T) {
+	rec := httptest.NewRecorder()
+	failUpload(rec, upload.ErrHeicUnavailable)
+	if rec.Code != http.StatusUnsupportedMediaType {
+		t.Fatalf("status = %d, want 415", rec.Code)
+	}
+	var envelope struct {
+		Message string `json:"message"`
+		Data    struct {
+			Code string `json:"code"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &envelope); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	want := "当前构建无法解码 HEIC，请使用官方 Docker 镜像或 make build-vips（需 libheif）"
+	if envelope.Message != want {
+		t.Errorf("message = %q, want %q", envelope.Message, want)
+	}
+	if envelope.Data.Code != CodeHeicUnsupported {
+		t.Errorf("code = %q, want %q", envelope.Data.Code, CodeHeicUnsupported)
 	}
 }
 

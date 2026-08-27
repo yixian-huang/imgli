@@ -20,4 +20,5 @@ export default {
   requestFailed: '请求失败',
   expires_over_group: '有效期超出用户组限制（不允许永久或超过上限）',
   max_views_over_group: '访问次数超出用户组限制（不允许不限或超过上限）',
+  heic_unsupported: '当前构建无法解码 HEIC，请使用官方 Docker 镜像或 make build-vips（需 libheif）',
 }

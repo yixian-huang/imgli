@@ -226,6 +226,15 @@ export function SystemPage() {
                           : '—',
                   },
                   {
+                    label: t('adminA.heicDecode'),
+                    value:
+                      data.runtime.heic_decode === true
+                        ? t('adminA.capabilityYes')
+                        : data.runtime.heic_decode === false
+                          ? t('adminA.capabilityNo')
+                          : '—',
+                  },
+                  {
                     label: t('adminA.thumbExt'),
                     value: data.runtime.thumb_ext ? `.${data.runtime.thumb_ext}` : '—',
                   },

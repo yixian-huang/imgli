@@ -29,3 +29,12 @@ test('en: detailed invalid_request keeps server message', () => {
     'config 无效: CDN 域名须以 http:// 或 https:// 开头，例如 https://cdn.example.com'
   expect(errorText('invalid_request', long)).toBe(long)
 })
+
+test('heic_unsupported: zh/en 都走 i18n，不回落中文后端原文', () => {
+  const zh = '当前构建无法解码 HEIC，请使用官方 Docker 镜像或 make build-vips（需 libheif）'
+  const en = 'This build cannot decode HEIC. Use the official Docker image or make build-vips (libheif required).'
+  useGlobal.setState({ lang: 'zh' })
+  expect(errorText('heic_unsupported', 'ignored fallback')).toBe(zh)
+  useGlobal.setState({ lang: 'en' })
+  expect(errorText('heic_unsupported', zh)).toBe(en)
+})

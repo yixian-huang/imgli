@@ -24,6 +24,8 @@ const (
 	// 用户组上传选项限制（上传 / 改图）。
 	CodeExpiresOverGroup  = "expires_over_group"
 	CodeMaxViewsOverGroup = "max_views_over_group"
+	// 魔数已认出 HEIF，但本构建没有可用解码器（纯 Go / 无 libheif）。
+	CodeHeicUnsupported = "heic_unsupported"
 )
 
 // MaxExpiresInSec 有效期上限(1 年):既作业务上限(过期用于临时分享无需多年),又防

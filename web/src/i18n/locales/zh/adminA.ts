@@ -260,13 +260,14 @@ export default {
   installShape: '安装形态',
   imagingBackend: '图像后端',
   webpEncode: '原图 WebP 编码',
+  heicDecode: 'HEIC 解码',
   thumbExt: '缩略图格式',
   capabilityYes: '可用',
   capabilityNo: '不可用',
   imagingHintVips:
-    '当前为 libvips 构建：WebP 缩略图与「图片处理 → 转 WebP」可用。官方 Docker 镜像默认已包含。',
+    '当前为 libvips 构建：WebP 缩略图与「图片处理 → 转 WebP」可用。官方 Docker 镜像默认已包含。HEIC 解码还需 libheif（官方镜像已带）。',
   imagingHintPureGo:
-    '当前为纯 Go 构建：无原图 WebP 编码。生产建议用官方 Docker 镜像（默认带 vips），或本机 make build-vips。',
+    '当前为纯 Go 构建：无原图 WebP 编码，也无法解码 HEIC。生产建议用官方 Docker 镜像（默认带 vips+libheif），或本机 make build-vips（需 libheif）。',
   imagingSettingsLink: '打开图片处理设置 →',
   requestHost: '请求 Host',
   headerPresent: '已设置',

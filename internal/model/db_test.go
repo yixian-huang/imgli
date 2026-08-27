@@ -29,8 +29,14 @@ func TestMigrateAndSeedIdempotent(t *testing.T) {
 	if !groups[0].IsDefault || groups[0].StorageQuota != 10<<30 {
 		t.Errorf("默认组配置不符: %+v", groups[0])
 	}
+	if !hasExt(groups[0].AllowedExts, "heic") || !hasExt(groups[0].AllowedExts, "heif") {
+		t.Errorf("默认组 AllowedExts 缺 heic/heif: %v", groups[0].AllowedExts)
+	}
 	if !groups[1].IsGuest || groups[1].MaxFileSize != 5<<20 || groups[1].RatePerDay != 3 {
 		t.Errorf("游客组配置不符: %+v", groups[1])
+	}
+	if !hasExt(groups[1].AllowedExts, "heic") || !hasExt(groups[1].AllowedExts, "heif") {
+		t.Errorf("游客组 AllowedExts 缺 heic/heif: %v", groups[1].AllowedExts)
 	}
 
 	var policy StoragePolicy
@@ -50,6 +56,35 @@ func TestMigrateAndSeedIdempotent(t *testing.T) {
 	}
 	if reg.Value != `"open"` {
 		t.Errorf("registration_mode = %s, want \"open\"", reg.Value)
+	}
+}
+
+func hasExt(exts []string, want string) bool {
+	for _, e := range exts {
+		if e == want {
+			return true
+		}
+	}
+	return false
+}
+
+// TestSeedDoesNotRewriteExistingGroupExts firstOrCreateBy 只播种新行：存量默认组
+// 被改回五后缀后，再次 Seed 不得追加 heic/heif。
+func TestSeedDoesNotRewriteExistingGroupExts(t *testing.T) {
+	db := TestDB(t)
+	if err := db.Model(&UserGroup{}).Where("is_default = ?", true).
+		Update("allowed_exts", `["png","jpg","jpeg","gif","webp"]`).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := Seed(db); err != nil {
+		t.Fatal(err)
+	}
+	var g UserGroup
+	if err := db.Where("is_default = ?", true).First(&g).Error; err != nil {
+		t.Fatal(err)
+	}
+	if hasExt(g.AllowedExts, "heic") || hasExt(g.AllowedExts, "heif") {
+		t.Fatalf("seed must not append heic/heif onto existing groups: %v", g.AllowedExts)
 	}
 }
 

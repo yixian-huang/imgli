@@ -93,7 +93,7 @@ interface FormState {
 
 const NEW_FORM: FormState = {
   name: '', quotaGB: '10', maxMB: '20', bwGB: '5', perMin: '20', perHour: '200', perDay: '1000',
-  exts: ['png', 'jpg', 'jpeg', 'gif', 'webp'], policyIds: [],
+  exts: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'heif'], policyIds: [],
   defaultExpiresDays: '0', maxExpiresDays: '0', defaultMaxViews: '0', maxMaxViews: '0',
   retentionDays: '0', forceMaxAgeDays: '0',
 }

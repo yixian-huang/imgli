@@ -3,7 +3,10 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
+
+	"github.com/yixian-huang/imgli/internal/imaging"
 )
 
 func TestAdminSystemHealth(t *testing.T) {
@@ -38,6 +41,7 @@ func TestAdminSystemHealth(t *testing.T) {
 			RequestHost    string `json:"request_host"`
 			ImagingBackend string `json:"imaging_backend"`
 			WebPEncode     bool   `json:"webp_encode"`
+			HeicDecode     bool   `json:"heic_decode"`
 			ThumbExt       string `json:"thumb_ext"`
 		} `json:"runtime"`
 	}
@@ -68,6 +72,15 @@ func TestAdminSystemHealth(t *testing.T) {
 	}
 	if body.Runtime.ImagingBackend == "vips" && !body.Runtime.WebPEncode {
 		t.Error("vips build should report webp_encode")
+	}
+	if !strings.Contains(rec.Body.String(), `"heic_decode"`) {
+		t.Error("runtime missing heic_decode")
+	}
+	if body.Runtime.HeicDecode != imaging.HeicDecodeAvailable() {
+		t.Errorf("heic_decode = %v, want %v", body.Runtime.HeicDecode, imaging.HeicDecodeAvailable())
+	}
+	if body.Runtime.ImagingBackend == "pure-go" && body.Runtime.HeicDecode {
+		t.Error("pure-go build should not report heic_decode")
 	}
 	// default test config is localhost-shaped → expect a base_url check present
 	found := false

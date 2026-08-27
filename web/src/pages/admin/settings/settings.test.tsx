@@ -55,7 +55,7 @@ const SETTINGS = {
     webp_quality: 0,
     webp_skip_if_larger: true,
   },
-  processing_capabilities: { webp_encode: false },
+  processing_capabilities: { webp_encode: false, heic_decode: false },
 }
 
 let putBody: Record<string, unknown> | null = null
