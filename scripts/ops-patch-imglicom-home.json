@@ -1,8 +1,8 @@
 {
   "hero": {
     "eyebrow": {
-      "zh": "开源图床 · v0.7",
-      "en": "Open source · v0.7"
+      "zh": "开源图床 · v0.9.17",
+      "en": "Open source · v0.9.17"
     },
     "badge": {
       "zh": "AGPL · 自托管",
@@ -13,8 +13,8 @@
       "en": "Self-hosted image hosting — one leap to a link"
     },
     "subtitle": {
-      "zh": "imgli 是 Go 单二进制多用户图床，内嵌 React。支持本地/S3/WebDAV、机审、口令分享，以及 v0.7 管理后台「系统 / 运维」健康检查。公共实例 img.li 供轻量试用（约 1GB 存储 / 5GB 月流量，非无限 CDN）；主路径是你自己部署。",
-      "en": "imgli is a single-binary multi-user image host in Go with embedded React. Local/S3/WebDAV, moderation, password shares, and a v0.7 admin System/Ops health console. img.li is a capped public trial (~1GB storage / 5GB monthly bandwidth — not free CDN); the main path is self-hosting."
+      "zh": "imgli 是 Go 单二进制多用户图床，内嵌 React。支持本地/S3/WebDAV、机审、口令分享、管理后台运维台。v0.9.17 起官方 Docker 可收 iPhone HEIC。公共实例 img.li 供轻量试用（约 1GB 存储 / 5GB 月流量，非无限 CDN）；主路径是你自己部署。",
+      "en": "imgli is a single-binary multi-user image host in Go with embedded React. Local/S3/WebDAV, moderation, password shares, and an admin ops console. v0.9.17 official Docker accepts iPhone HEIC. img.li is a capped public trial (~1GB storage / 5GB monthly bandwidth — not free CDN); the main path is self-hosting."
     },
     "primaryCta": {
       "label": {
@@ -121,8 +121,8 @@
           "en": "Ops console"
         },
         "description": {
-          "zh": "v0.7 管理后台「系统 / 运维」：doctor 健康检查、base_url / 反代错配提示、升级与清理入口。",
-          "en": "v0.7 admin System/Ops: doctor health checks, base_url / reverse-proxy mismatch hints, upgrade & cleanup."
+          "zh": "管理后台「系统 / 运维」：doctor 健康检查、base_url / 反代错配提示、升级与清理入口。",
+          "en": "Admin System/Ops: doctor health checks, base_url / reverse-proxy mismatch hints, upgrade & cleanup."
         }
       },
       {
@@ -149,8 +149,8 @@
           "en": "Install the binary"
         },
         "description": {
-          "zh": "Linux / macOS 用 install.sh 拉 v0.7.0 Release。详见文档「安装」。",
-          "en": "Linux / macOS: install.sh pulls the v0.7.0 Release. See docs → Install."
+          "zh": "Linux / macOS 用 install.sh 拉 v0.9.17 Release。详见文档「安装」。",
+          "en": "Linux / macOS: install.sh pulls the v0.9.17 Release. See docs → Install."
         }
       },
       {
@@ -180,10 +180,10 @@
       "zh": "快速开始",
       "en": "Quick start"
     },
-    "code": "curl -fsSL https://raw.githubusercontent.com/yixian-huang/imgli/main/scripts/install.sh | sh -s -- v0.7.0\nimgli serve\n# → http://localhost:8686",
+    "code": "curl -fsSL https://raw.githubusercontent.com/yixian-huang/imgli/main/scripts/install.sh | sh -s -- v0.9.17\nimgli serve\n# → http://localhost:8686",
     "caption": {
-      "zh": "完整安装、升级与配置见 docs.imgli.com；Docker：ghcr.io/yixian-huang/imgli:v0.7.0。",
-      "en": "Full install, upgrade, and config: docs.imgli.com. Docker: ghcr.io/yixian-huang/imgli:v0.7.0."
+      "zh": "完整安装、升级与配置见 docs.imgli.com；Docker：ghcr.io/yixian-huang/imgli:v0.9.17。",
+      "en": "Full install, upgrade, and config: docs.imgli.com. Docker: ghcr.io/yixian-huang/imgli:v0.9.17."
     }
   },
   "bottomCta": {
