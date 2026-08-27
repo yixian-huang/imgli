@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/yixian-huang/imgli/internal/imaging"
+	"github.com/yixian-huang/imgli/internal/model"
 )
 
 func TestSaveHEIFTranscodesToJPEGOrWebP(t *testing.T) {
