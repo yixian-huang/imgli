@@ -141,7 +141,8 @@ auto-purge, clearer delete UX. See [CHANGELOG](CHANGELOG.md#080---2026-08-02).
 
 ## Next (not a committed schedule)
 
-- **Community:** more S3-compatible vendors in the matrix (#51)  
+- **0.10:** durable Admin storage-migrate jobs (persist / resume / cancel). Checksum, CDN purge, and dual-write stay later.
+- **Community:** more S3-compatible vendors in the matrix (#51)
 - **Later candidates (internal SSOT):** single-instance team/org, fuller transform suite, more IdP connectors, async replicas / dual-write  
 
 No open product milestone is required for community PRs — file an Issue or open a PR against `main`.

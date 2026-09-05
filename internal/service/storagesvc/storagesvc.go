@@ -31,14 +31,13 @@ type Resolver struct {
 	mu    sync.Mutex
 	cache map[uint64]cachedDriver // policyID → 缓存驱动+指纹
 
-	// migrateMu / migrateActive：跨策略搬迁进程内互斥（按 from policy id）。
-	// 与 cache 锁分离，避免 Driver 解析与搬迁长时间持锁交叉死锁。
+	// migrateMu / migrateActive：CLI 同步搬迁进程内互斥（按 from policy id）。
+	// Admin job 互斥在 DB（pending|running 部分唯一索引）。
 	migrateMu     sync.Mutex
 	migrateActive map[uint64]struct{}
 
-	// jobsMu / jobs：Admin 异步搬迁任务（进程内；重启即失，重跑幂等）。
-	jobsMu sync.Mutex
-	jobs   map[string]*MigrateJob
+	liveMu sync.Mutex
+	live   map[string]*liveMigrateJob
 }
 
 func New(cfg *config.Config, db *gorm.DB) *Resolver {
@@ -47,7 +46,7 @@ func New(cfg *config.Config, db *gorm.DB) *Resolver {
 		db:            db,
 		cache:         map[uint64]cachedDriver{},
 		migrateActive: map[uint64]struct{}{},
-		jobs:          map[string]*MigrateJob{},
+		live:          map[string]*liveMigrateJob{},
 	}
 }
 

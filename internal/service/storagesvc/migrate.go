@@ -18,10 +18,14 @@ import (
 
 // 搬迁安全契约（v0.6 M2）：同 from 互斥、目标必须启用、进度/错误对 Admin 安全（无密钥）。
 var (
-	// ErrMigrateBusy 同一源策略上已有搬迁在进行（进程内互斥；Admin job 将复用）。
+	// ErrMigrateBusy 同一源策略上已有搬迁在进行（DB 互斥 pending|running）。
 	ErrMigrateBusy = errors.New("storagesvc: 源策略上已有搬迁任务进行中")
 	// ErrMigrateTargetDisabled 目标策略 Enabled=false。
 	ErrMigrateTargetDisabled = errors.New("storagesvc: 目标策略未启用")
+	// ErrMigrateNotFailed Resume 仅接受 failed。
+	ErrMigrateNotFailed = errors.New("storagesvc: 任务不是 failed，无法续跑")
+	// ErrMigrateNotCancellable Cancel 仅接受 pending|running。
+	ErrMigrateNotCancellable = errors.New("storagesvc: 任务已结束，无法取消")
 )
 
 // MigrateOpts 跨存储策略搬迁 file 行及其对象键（含缩略图）。
@@ -126,6 +130,9 @@ func (r *Resolver) MigrateFiles(ctx context.Context, db *gorm.DB, opts MigrateOp
 			return out, err
 		}
 		defer r.endMigrate(opts.FromPolicyID)
+		if err := r.errIfActiveJob(opts.FromPolicyID); err != nil {
+			return out, err
+		}
 	}
 
 	var fromP, toP model.StoragePolicy
@@ -180,8 +187,6 @@ func (r *Resolver) MigrateFiles(ctx context.Context, db *gorm.DB, opts MigrateOp
 			out.LastFileID = f.ID
 		}
 		if err := ctx.Err(); err != nil {
-			out.addErr(fmt.Sprintf("file#%d: %v", f.ID, err))
-			out.Failed++
 			return out, err
 		}
 		out.notePath(f.Path)

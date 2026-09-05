@@ -114,18 +114,18 @@ const (
 
 // Image 用户视角的图片记录。软删（DeletedAt）即回收站。
 type Image struct {
-	ID            uint64  `gorm:"primaryKey"`
-	Key           string  `gorm:"uniqueIndex;size:16"` // 12 位 base62，直链用
-	Slug          *string `gorm:"uniqueIndex;size:32"` // 可选 vanity 别名 [a-z0-9-]{3,32}
-	UserID        *uint64 `gorm:"index"`               // 游客上传为 nil
-	FileID        uint64  `gorm:"index"`
-	AlbumID       *uint64 `gorm:"index"`
+	ID      uint64  `gorm:"primaryKey"`
+	Key     string  `gorm:"uniqueIndex;size:16"` // 12 位 base62，直链用
+	Slug    *string `gorm:"uniqueIndex;size:32"` // 可选 vanity 别名 [a-z0-9-]{3,32}
+	UserID  *uint64 `gorm:"index"`               // 游客上传为 nil
+	FileID  uint64  `gorm:"index"`
+	AlbumID *uint64 `gorm:"index"`
 	// AlbumPos 相册内排序：>0 时升序优先；0 表示未手动排序（公开/属主列表回落到 id/时间）。
-	AlbumPos      int     `gorm:"not null;default:0;index"`
-	Name          string  `gorm:"size:255"`
-	Ext           string  `gorm:"size:8"`
-	Visibility    string  `gorm:"size:8;default:public"`  // public | private
-	Status        string  `gorm:"size:16;default:normal"` // normal | pending | rejected
+	AlbumPos      int    `gorm:"not null;default:0;index"`
+	Name          string `gorm:"size:255"`
+	Ext           string `gorm:"size:8"`
+	Visibility    string `gorm:"size:8;default:public"`  // public | private
+	Status        string `gorm:"size:16;default:normal"` // normal | pending | rejected
 	IsWhitelisted bool
 	NSFWScore     *float64
 	UploadIP      string     `gorm:"size:64"`
@@ -137,9 +137,9 @@ type Image struct {
 	// AccessPasswordHash 非空时非属主须口令解锁（argon2id PHC）；空=无口令。
 	// 永不经 API 返回明文/哈希；DTO 用 has_access_password。
 	AccessPasswordHash string `gorm:"size:255"`
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	DeletedAt   gorm.DeletedAt `gorm:"index"`
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+	DeletedAt          gorm.DeletedAt `gorm:"index"`
 
 	User  *User  `gorm:"foreignKey:UserID;constraint:OnDelete:RESTRICT" json:"-"`
 	File  *File  `gorm:"foreignKey:FileID;constraint:OnDelete:RESTRICT" json:"-"`
@@ -273,6 +273,30 @@ type SchemaVersion struct {
 	AppliedAt time.Time
 }
 
+// StorageMigrateJob 跨策略搬迁任务（落库；重启可续）。
+type StorageMigrateJob struct {
+	ID            string `gorm:"primaryKey;size:32"`
+	FromPolicyID  uint64 `gorm:"index"`
+	ToPolicyID    uint64
+	DryRun        bool
+	DeleteSource  bool
+	Limit         int
+	UserID        *uint64
+	CreatedAfter  *time.Time
+	CreatedBefore *time.Time
+	Status        string `gorm:"size:16;index"` // pending|running|done|failed|cancelled
+	CursorAfterID uint64
+	Scanned       int
+	Copied        int
+	Skipped       int
+	Failed        int
+	SamplePaths   []string `gorm:"serializer:json"`
+	Errors        []string `gorm:"serializer:json"`
+	LastError     string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+
 // D-① 访问统计:(image_id|host, date) 唯一联合索引,upsert 累加
 type AccessStat struct {
 	ID      uint64 `gorm:"primaryKey"`
@@ -303,6 +327,7 @@ func AllModels() []any {
 		&User{}, &UserGroup{}, &File{}, &Image{}, &Album{},
 		&APIToken{}, &Session{}, &AuthToken{}, &InviteCode{},
 		&StoragePolicy{}, &Setting{}, &Task{}, &AuditLog{}, &SchemaVersion{},
+		&StorageMigrateJob{},
 		&AccessStat{}, &RefererStat{}, &RefererImageStat{}, &AlbumAccessStat{},
 	}
 }

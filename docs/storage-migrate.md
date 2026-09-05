@@ -38,14 +38,20 @@ Content-Type: application/json
 ```
 
 ```http
+GET /api/v1/admin/storage/migrate
 GET /api/v1/admin/storage/migrate/{job_id}
+POST /api/v1/admin/storage/migrate/{job_id}/cancel
+POST /api/v1/admin/storage/migrate/{job_id}/resume
 ```
 
 | Field | Notes |
 |-------|--------|
-| Job is process-local | Restart loses in-memory job status; re-run is safe: already-retargeted rows no longer match `from` |
-| One job per source | Concurrent migrate on the same `from` returns conflict / busy |
+| Jobs persist in SQLite/Postgres | Restart recovers `pending` / `running` from `cursor_after_id`; already-retargeted rows no longer match `from` |
+| Resume | `failed` jobs can continue from the cursor (not auto-retried) |
+| Cancel | Cooperative stop between files/batches; already copied objects are not rolled back |
+| One job per source | Concurrent migrate on the same `from` (`pending`/`running`) returns conflict / busy |
 | Secrets | Progress never includes storage credentials |
+| CLI | `imgli storage-migrate` stays a foreground command and does not enqueue |
 
 ### Estimate (optional)
 
@@ -81,6 +87,8 @@ Thumbs under `.thumbs/…` are copied best-effort; missing thumbs do not fail th
 2. `limit=10`: exactly 10 rows retargeted when enough candidates exist; objects readable on `to`.
 3. Full + delete-source: source empty of migrated keys (or only skipped missing); serve via `to`.
 4. Interrupt / re-run: no double-delete chaos; rows already on `to` are not selected again.
+4b. Kill the process mid-job and start the server: the same `job_id` is still listed, progress continues, objects already on `to` are not copied twice.
+4c. Failed job → Resume continues from `cursor_after_id`. Cancel stops further Puts.
 5. Target disabled: start refused.
 6. Private / password / expiry gates still apply after migrate (metadata unchanged).
 

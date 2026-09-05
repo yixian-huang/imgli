@@ -113,6 +113,9 @@ func (s *Server) mountAPI() {
 	// 上传与任务系统（storage/auth 实例挂到 Server，供 mountServe 复用）
 	storageRes := storagesvc.New(s.opts.Cfg, s.opts.DB)
 	s.storageRes = storageRes
+	if n := storageRes.RecoverMigrateJobs(); n > 0 {
+		slog.Info("recovered storage migrate jobs", "count", n)
+	}
 	s.authRes = res
 	if s.imgProc == nil {
 		s.imgProc = imaging.New()
@@ -290,7 +293,10 @@ func (s *Server) mountAPI() {
 				ar.Delete("/policies/{id}", admH.DeletePolicy)
 				ar.Post("/policies/{id}/test", admH.TestPolicyConn)
 				ar.Post("/storage/migrate", admH.StartStorageMigrate)
+				ar.Get("/storage/migrate", admH.ListStorageMigrate)
 				ar.Get("/storage/migrate/{id}", admH.GetStorageMigrate)
+				ar.Post("/storage/migrate/{id}/cancel", admH.CancelStorageMigrate)
+				ar.Post("/storage/migrate/{id}/resume", admH.ResumeStorageMigrate)
 				ar.Get("/system/version", admH.GetSystemVersion)
 				ar.Get("/system/health", admH.GetSystemHealth)
 				ar.Post("/system/check-update", admH.CheckSystemUpdate)

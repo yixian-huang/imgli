@@ -129,7 +129,7 @@ export default {
 
   migrateTitle: 'Cross-policy migrate',
   migrateDesc:
-    'Copy objects from a source policy to a target and retarget file rows (cutover). CLI storage-migrate remains available.',
+    'Copy objects from a source policy to a target and retarget file rows (cutover). Jobs persist across restart, can be resumed after failure, and cancelled between batches. CLI storage-migrate stays a foreground command.',
   migrateFrom: 'From policy',
   migrateTo: 'To policy',
   migrateDryRun: 'Dry-run only (no writes)',
@@ -140,6 +140,8 @@ export default {
   migrateStatus: 'Status: {status}',
   migratePickDifferent: 'Source and target must differ',
   migrateNeedTwo: 'Need at least two policies to migrate',
+  migrateCancel: 'Cancel migrate',
+  migrateResume: 'Resume from cursor',
 
   // Invites
   invitesTitle: 'Invite codes',

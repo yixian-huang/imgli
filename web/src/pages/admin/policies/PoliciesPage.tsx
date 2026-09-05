@@ -1,10 +1,13 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   useAdminPolicies,
+  useCancelStorageMigrate,
   useCreatePolicy,
   useDeletePolicy,
+  useResumeStorageMigrate,
   useStartStorageMigrate,
   useStorageMigrateJob,
+  useStorageMigrateJobs,
   useTestPolicy,
   useUpdatePolicy,
 } from '../../../api/adminHooks'
@@ -387,6 +390,9 @@ export function PoliciesPage() {
   const del = useDeletePolicy()
   const test = useTestPolicy()
   const startMigrate = useStartStorageMigrate()
+  const cancelMigrate = useCancelStorageMigrate()
+  const resumeMigrate = useResumeStorageMigrate()
+  const migListQ = useStorageMigrateJobs()
 
   const policies = policiesQ.data?.items ?? []
   const [sel, setSel] = useState<number | 'new' | null>(null)
@@ -401,6 +407,14 @@ export function PoliciesPage() {
   const [migLimit, setMigLimit] = useState('0')
   const [migJobId, setMigJobId] = useState<string | null>(null)
   const migJobQ = useStorageMigrateJob(migJobId)
+
+  useEffect(() => {
+    if (migJobId) return
+    const items = migListQ.data?.items
+    if (!items?.length) return
+    const live = items.find((j) => j.status === 'pending' || j.status === 'running' || j.status === 'failed')
+    setMigJobId((live ?? items[0]).id)
+  }, [migListQ.data, migJobId])
   const policyOptions = useMemo(
     () => policies.map((p) => ({ id: p.id, label: `${p.name} (#${p.id})${p.enabled ? '' : ' · off'}` })),
     [policies],
@@ -663,9 +677,35 @@ export function PoliciesPage() {
                 />
                 <span>{t('adminB.migrateDeleteSource')}</span>
               </label>
-              <Button variant="secondary" disabled={startMigrate.isPending} onClick={runMigrate}>
+              <Button
+                variant="secondary"
+                disabled={
+                  startMigrate.isPending ||
+                  migJobQ.data?.status === 'pending' ||
+                  migJobQ.data?.status === 'running'
+                }
+                onClick={runMigrate}
+              >
                 {t('adminB.migrateStart')}
               </Button>
+              {(migJobQ.data?.status === 'pending' || migJobQ.data?.status === 'running') && (
+                <Button
+                  variant="secondary"
+                  disabled={cancelMigrate.isPending}
+                  onClick={() => migJobId && cancelMigrate.mutate(migJobId)}
+                >
+                  {t('adminB.migrateCancel')}
+                </Button>
+              )}
+              {migJobQ.data?.status === 'failed' && (
+                <Button
+                  variant="secondary"
+                  disabled={resumeMigrate.isPending}
+                  onClick={() => migJobId && resumeMigrate.mutate(migJobId)}
+                >
+                  {t('adminB.migrateResume')}
+                </Button>
+              )}
             </div>
             {migJobQ.data && (
               <div className="mt-3 text-[0.9rem] opacity-90">

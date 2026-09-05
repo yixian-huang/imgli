@@ -12,6 +12,7 @@ separate version in `go.mod` or `web/package.json`.
 
 ### Added
 
+- **Durable storage migrate jobs:** Admin cross-policy migrate persists in the database. Restart recovers `pending`/`running` from `cursor_after_id`. Failed jobs can **Resume**; running jobs can **Cancel** (no rollback of already copied objects). Same source policy still busy-locks. CLI `storage-migrate` stays a synchronous foreground command.
 - **Stock-group HEIC/HEIF (schema v9):** one-shot append of `heic`/`heif` when a group's `allowed_exts` is exactly the pre-0.9.17 default five (`png,jpg,jpeg,gif,webp`). Custom lists are unchanged. Seed still does not rewrite existing groups. `imgli doctor` WARNs when this build can decode HEIC but a group omits those extensions.
 - **DCO on pull requests:** every human commit must include `Signed-off-by`. dependabot / github-actions are skipped.
 
