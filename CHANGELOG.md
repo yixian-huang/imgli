@@ -10,9 +10,20 @@ separate version in `go.mod` or `web/package.json`.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-09-05
+
+Theme: **Durable storage migrate**.
+
 ### Added
 
 - **Durable storage migrate jobs:** Admin cross-policy migrate persists in the database. Restart recovers `pending`/`running` from `cursor_after_id`. Failed jobs can **Resume**; running jobs can **Cancel** (no rollback of already copied objects). Same source policy still busy-locks. CLI `storage-migrate` stays a synchronous foreground command.
+
+## [0.9.18] - 2026-09-05
+
+Theme: **HEIC stock groups · DCO**.
+
+### Added
+
 - **Stock-group HEIC/HEIF (schema v9):** one-shot append of `heic`/`heif` when a group's `allowed_exts` is exactly the pre-0.9.17 default five (`png,jpg,jpeg,gif,webp`). Custom lists are unchanged. Seed still does not rewrite existing groups. `imgli doctor` WARNs when this build can decode HEIC but a group omits those extensions.
 - **DCO on pull requests:** every human commit must include `Signed-off-by`. dependabot / github-actions are skipped.
 
@@ -588,7 +599,9 @@ Theme: **Workflow & Trust** — CLI/integrations, share landing, privacy
 - Bilingual UI (中文/English), PWA, dark mode, text watermark, admin audit logs.
 - Docker Compose quick start and GitHub Actions CI (Go matrix, web, e2e smoke).
 
-[Unreleased]: https://github.com/yixian-huang/imgli/compare/v0.9.17...HEAD
+[Unreleased]: https://github.com/yixian-huang/imgli/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/yixian-huang/imgli/compare/v0.9.18...v0.10.0
+[0.9.18]: https://github.com/yixian-huang/imgli/compare/v0.9.17...v0.9.18
 [0.9.17]: https://github.com/yixian-huang/imgli/compare/v0.9.16...v0.9.17
 [0.9.16]: https://github.com/yixian-huang/imgli/compare/v0.9.15...v0.9.16
 [0.9.15]: https://github.com/yixian-huang/imgli/compare/v0.9.14...v0.9.15

@@ -1,8 +1,8 @@
 {
   "hero": {
     "eyebrow": {
-      "zh": "开源图床 · v0.9.17",
-      "en": "Open source · v0.9.17"
+      "zh": "开源图床 · v0.10.0",
+      "en": "Open source · v0.10.0"
     },
     "badge": {
       "zh": "AGPL · 自托管",
@@ -149,8 +149,8 @@
           "en": "Install the binary"
         },
         "description": {
-          "zh": "Linux / macOS 用 install.sh 拉 v0.9.17 Release。详见文档「安装」。",
-          "en": "Linux / macOS: install.sh pulls the v0.9.17 Release. See docs → Install."
+          "zh": "Linux / macOS 用 install.sh 拉 v0.10.0 Release。详见文档「安装」。",
+          "en": "Linux / macOS: install.sh pulls the v0.10.0 Release. See docs → Install."
         }
       },
       {
@@ -180,10 +180,10 @@
       "zh": "快速开始",
       "en": "Quick start"
     },
-    "code": "curl -fsSL https://raw.githubusercontent.com/yixian-huang/imgli/main/scripts/install.sh | sh -s -- v0.9.17\nimgli serve\n# → http://localhost:8686",
+    "code": "curl -fsSL https://raw.githubusercontent.com/yixian-huang/imgli/main/scripts/install.sh | sh -s -- v0.10.0\nimgli serve\n# → http://localhost:8686",
     "caption": {
-      "zh": "完整安装、升级与配置见 docs.imgli.com；Docker：ghcr.io/yixian-huang/imgli:v0.9.17。",
-      "en": "Full install, upgrade, and config: docs.imgli.com. Docker: ghcr.io/yixian-huang/imgli:v0.9.17."
+      "zh": "完整安装、升级与配置见 docs.imgli.com；Docker：ghcr.io/yixian-huang/imgli:v0.10.0。",
+      "en": "Full install, upgrade, and config: docs.imgli.com. Docker: ghcr.io/yixian-huang/imgli:v0.10.0."
     }
   },
   "bottomCta": {

@@ -3,7 +3,23 @@
 > **Planning SSOT is internal** (`imgli/roadmap` in the project knowledge base).  
 > This file is a **public, de-sensitized mirror** for contributors. Prefer GitHub Issues + Milestones for execution.
 
-## Latest shipped — v0.9.17 · HEIC ingest · more `/t` widths
+## Latest shipped — v0.10.0 · Durable storage migrate
+
+Release: https://github.com/yixian-huang/imgli/releases/tag/v0.10.0
+
+Admin cross-policy migrate jobs persist across restart (resume / cancel).
+CLI `storage-migrate` stays a foreground command. See
+[CHANGELOG](CHANGELOG.md#0100---2026-09-05).
+
+## Previous — v0.9.18 · HEIC stock groups · DCO
+
+Release: https://github.com/yixian-huang/imgli/releases/tag/v0.9.18
+
+Existing default five-ext groups gain `heic`/`heif` on upgrade (schema v9).
+Custom lists unchanged. DCO required on human PRs. See
+[CHANGELOG](CHANGELOG.md#0918---2026-09-05).
+
+## Previous — v0.9.17 · HEIC ingest · more `/t` widths
 
 Release: https://github.com/yixian-huang/imgli/releases/tag/v0.9.17
 
@@ -141,9 +157,8 @@ auto-purge, clearer delete UX. See [CHANGELOG](CHANGELOG.md#080---2026-08-02).
 
 ## Next (not a committed schedule)
 
-- **0.10:** durable Admin storage-migrate jobs (persist / resume / cancel). Checksum, CDN purge, and dual-write stay later.
 - **Community:** more S3-compatible vendors in the matrix (#51)
-- **Later candidates (internal SSOT):** single-instance team/org, fuller transform suite, more IdP connectors, async replicas / dual-write  
+- **Later candidates (internal SSOT):** migrate checksum / CDN purge, async replicas / dual-write, single-instance team/org, fuller transform suite, more IdP connectors  
 
 No open product milestone is required for community PRs — file an Issue or open a PR against `main`.
 
