@@ -10,6 +10,11 @@ separate version in `go.mod` or `web/package.json`.
 
 ## [Unreleased]
 
+### Added
+
+- **Stock-group HEIC/HEIF (schema v9):** one-shot append of `heic`/`heif` when a group's `allowed_exts` is exactly the pre-0.9.17 default five (`png,jpg,jpeg,gif,webp`). Custom lists are unchanged. Seed still does not rewrite existing groups. `imgli doctor` WARNs when this build can decode HEIC but a group omits those extensions.
+- **DCO on pull requests:** every human commit must include `Signed-off-by`. dependabot / github-actions are skipped.
+
 ## [0.9.17] - 2026-08-27
 
 Theme: **HEIC ingest · more `/t` widths**.

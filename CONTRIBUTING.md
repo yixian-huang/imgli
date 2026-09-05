@@ -17,7 +17,8 @@ By opening a pull request you agree that:
    distributions (including proprietary commercial licenses of imgli that
    include your contribution).
 
-Please include a **Developer Certificate of Origin** sign-off on each commit:
+Please include a **Developer Certificate of Origin** sign-off on each commit
+(CI rejects PRs that omit it; dependabot / github-actions are skipped):
 
 ```bash
 git commit -s -m "your message"

@@ -1,6 +1,7 @@
 package model
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -153,7 +154,11 @@ func Migrate(db *gorm.DB) error {
 	if err := db.FirstOrCreate(&SchemaVersion{Version: 8}).Error; err != nil {
 		return err
 	}
-	return migratePrivateAlbumImages(db)
+	if err := migratePrivateAlbumImages(db); err != nil {
+		return err
+	}
+	// v9：升级前默认五件套用户组一次性追加 heic/heif（自定义名单不动）。
+	return applySchemaV9StockHeic(db)
 }
 
 // FreeBandwidthQuotaMonth Free/默认组第一期月流量硬顶：5 GiB。
@@ -198,6 +203,67 @@ func migratePrivateAlbumImages(db *gorm.DB) error {
 		    SELECT 1 FROM albums WHERE albums.id = images.album_id AND albums.visibility = ?
 		  )
 	`, "private", "public", "private").Error
+}
+
+// stockRasterExts 是 v0.9.17 之前默认/游客组的允许后缀（顺序不敏感）。
+var stockRasterExts = []string{"png", "jpg", "jpeg", "gif", "webp"}
+
+func applySchemaV9StockHeic(db *gorm.DB) error {
+	var n int64
+	if err := db.Model(&SchemaVersion{}).Where("version = ?", 9).Count(&n).Error; err != nil {
+		return err
+	}
+	if n > 0 {
+		return nil
+	}
+	if err := migrateStockGroupHeicExts(db); err != nil {
+		return err
+	}
+	if err := db.Create(&SchemaVersion{Version: 9}).Error; err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
+// IsStockRasterExts 报告 allowed_exts 是否精确等于升级前默认五件套（顺序、大小写不敏感）。
+func IsStockRasterExts(exts []string) bool {
+	if len(exts) != len(stockRasterExts) {
+		return false
+	}
+	want := make(map[string]struct{}, len(stockRasterExts))
+	for _, e := range stockRasterExts {
+		want[e] = struct{}{}
+	}
+	for _, raw := range exts {
+		k := strings.ToLower(strings.TrimSpace(raw))
+		if _, ok := want[k]; !ok {
+			return false
+		}
+		delete(want, k)
+	}
+	return len(want) == 0
+}
+
+// migrateStockGroupHeicExts 给精确等于默认五件套的用户组追加 heic/heif。自定义名单不动。
+func migrateStockGroupHeicExts(db *gorm.DB) error {
+	var groups []UserGroup
+	if err := db.Find(&groups).Error; err != nil {
+		return err
+	}
+	for i := range groups {
+		g := &groups[i]
+		if !IsStockRasterExts(g.AllowedExts) {
+			continue
+		}
+		g.AllowedExts = append(append([]string(nil), g.AllowedExts...), "heic", "heif")
+		if err := db.Model(g).Select("AllowedExts").Updates(g).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func migrateSurface(db *gorm.DB) error {

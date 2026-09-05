@@ -14,6 +14,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/yixian-huang/imgli/internal/config"
+	"github.com/yixian-huang/imgli/internal/imaging"
 	"github.com/yixian-huang/imgli/internal/model"
 	"github.com/yixian-huang/imgli/internal/service/storagesvc"
 	"github.com/yixian-huang/imgli/internal/storage"
@@ -77,6 +78,7 @@ func Run(cfg *config.Config) Report {
 	checkLocalPolicies(cfg, db, &r)
 	checkCDNMetering(db, &r)
 	checkStorageCaps(db, &r)
+	checkHeicGroups(db, &r)
 	return r
 }
 
@@ -128,6 +130,53 @@ func checkStorageCaps(db *gorm.DB, r *Report) {
 	if compatOnly {
 		r.add("compat_only", Warn, "全部启用策略均为兼容层（compat）；高流量建议增加本地或 S3")
 	}
+}
+
+func groupAllowsHeicHeif(exts []string) bool {
+	var heic, heif bool
+	for _, raw := range exts {
+		switch strings.ToLower(strings.TrimSpace(raw)) {
+		case "heic":
+			heic = true
+		case "heif":
+			heif = true
+		}
+	}
+	return heic && heif
+}
+
+func heicGroupsMissing(groups []model.UserGroup) []string {
+	var names []string
+	for _, g := range groups {
+		if !groupAllowsHeicHeif(g.AllowedExts) {
+			name := strings.TrimSpace(g.Name)
+			if name == "" {
+				name = fmt.Sprintf("#%d", g.ID)
+			}
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
+// checkHeicGroups WARNs when this build can decode HEIC but a user group omits heic/heif.
+func checkHeicGroups(db *gorm.DB, r *Report) {
+	if !imaging.HeicDecodeAvailable() {
+		return
+	}
+	var groups []model.UserGroup
+	if err := db.Find(&groups).Error; err != nil {
+		r.add("heic_groups", Warn, fmt.Sprintf("列举用户组失败: %v", err))
+		return
+	}
+	missing := heicGroupsMissing(groups)
+	if len(missing) == 0 {
+		r.add("heic_groups", OK, "用户组均允许 heic/heif")
+		return
+	}
+	r.add("heic_groups", Warn, fmt.Sprintf(
+		"构建可解码 HEIC，但用户组未允许 heic/heif：%s（iPhone 上传会 415 ext_not_allowed）",
+		strings.Join(missing, ", ")))
 }
 
 // checkCDNMetering warns when any enabled policy has cdn_domain set: admin
