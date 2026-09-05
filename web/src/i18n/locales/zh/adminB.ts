@@ -128,7 +128,8 @@ export default {
   confirmCompatEnableAck: '我已了解功能限制',
 
   migrateTitle: '跨策略搬迁',
-  migrateDesc: '把源策略上的对象复制到目标策略并改库指向（cutover）。CLI 仍可用 storage-migrate。',
+  migrateDesc:
+    '把源策略上的对象复制到目标策略并改库指向（cutover）。任务落库：重启可续、失败可 Resume、批间可取消。CLI storage-migrate 仍是同步前台命令。',
   migrateFrom: '源策略',
   migrateTo: '目标策略',
   migrateDryRun: '仅演练（不写盘/不改库）',
@@ -139,6 +140,8 @@ export default {
   migrateStatus: '状态：{status}',
   migratePickDifferent: '源与目标不能相同',
   migrateNeedTwo: '至少需要两个策略才能搬迁',
+  migrateCancel: '取消搬迁',
+  migrateResume: '从断点继续',
 
   // Invites
   invitesTitle: '邀请码',

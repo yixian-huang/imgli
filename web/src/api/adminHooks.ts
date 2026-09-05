@@ -279,6 +279,7 @@ export interface StorageMigrateJob {
 }
 
 export function useStartStorageMigrate() {
+  const qc = useQueryClient()
   return useMutation({
     mutationFn: (body: {
       from_policy_id: number
@@ -290,7 +291,19 @@ export function useStartStorageMigrate() {
       created_after?: string
       created_before?: string
     }) => post<StorageMigrateJob>('/admin/storage/migrate', body),
+    onSuccess: (j) => {
+      qc.invalidateQueries({ queryKey: queryKeys.admin.migrateJobs })
+      qc.setQueryData(queryKeys.admin.migrateJob(j.id), j)
+    },
     onError: toastApiError,
+  })
+}
+
+export function useStorageMigrateJobs() {
+  return useQuery({
+    queryKey: queryKeys.admin.migrateJobs,
+    queryFn: () => api<{ items: StorageMigrateJob[] }>('/admin/storage/migrate'),
+    staleTime: 5_000,
   })
 }
 
@@ -301,9 +314,33 @@ export function useStorageMigrateJob(id: string | null) {
     enabled: !!id,
     refetchInterval: (q) => {
       const s = q.state.data?.status
-      if (s === 'done' || s === 'failed') return false
+      if (s === 'done' || s === 'failed' || s === 'cancelled') return false
       return 1000
     },
+  })
+}
+
+export function useCancelStorageMigrate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => post<StorageMigrateJob>(`/admin/storage/migrate/${id}/cancel`),
+    onSuccess: (j) => {
+      qc.invalidateQueries({ queryKey: queryKeys.admin.migrateJobs })
+      qc.setQueryData(queryKeys.admin.migrateJob(j.id), j)
+    },
+    onError: toastApiError,
+  })
+}
+
+export function useResumeStorageMigrate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => post<StorageMigrateJob>(`/admin/storage/migrate/${id}/resume`),
+    onSuccess: (j) => {
+      qc.invalidateQueries({ queryKey: queryKeys.admin.migrateJobs })
+      qc.setQueryData(queryKeys.admin.migrateJob(j.id), j)
+    },
+    onError: toastApiError,
   })
 }
 

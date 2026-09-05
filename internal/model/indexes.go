@@ -29,5 +29,13 @@ func ensureIndexes(db *gorm.DB) error {
 			}
 		}
 	}
-	return nil
+	return ensureMigrateJobActiveIndex(db)
+}
+
+// ensureMigrateJobActiveIndex 同一 from 同时只允许一条 pending|running 搬迁任务。
+func ensureMigrateJobActiveIndex(db *gorm.DB) error {
+	if !db.Migrator().HasTable(&StorageMigrateJob{}) {
+		return nil
+	}
+	return db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_storage_migrate_jobs_active_from ON storage_migrate_jobs (from_policy_id) WHERE status IN ('pending','running')`).Error
 }

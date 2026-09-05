@@ -28,6 +28,7 @@ export const queryKeys = {
     users: (f: unknown) => ['admin', 'users', f] as const,
     groups: ['admin', 'groups'] as const,
     policies: ['admin', 'policies'] as const,
+    migrateJobs: ['admin', 'storage-migrate'] as const,
     migrateJob: (id: string) => ['admin', 'storage-migrate', id] as const,
     systemVersion: ['admin', 'system-version'] as const,
     systemHealth: ['admin', 'system-health'] as const,

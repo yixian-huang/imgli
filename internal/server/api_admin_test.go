@@ -2130,6 +2130,21 @@ func TestAdminStorageMigrateJob(t *testing.T) {
 			if job.Status != "done" {
 				t.Fatalf("job failed: %s", string(e.Data))
 			}
+			rec, e = doJSON(t, s, "GET", "/api/v1/admin/storage/migrate", "", []*http.Cookie{admin})
+			if rec.Code != http.StatusOK {
+				t.Fatalf("list migrate = %d %s", rec.Code, rec.Body.String())
+			}
+			var listed struct {
+				Items []struct {
+					ID string `json:"id"`
+				} `json:"items"`
+			}
+			if err := json.Unmarshal(e.Data, &listed); err != nil {
+				t.Fatal(err)
+			}
+			if len(listed.Items) == 0 || listed.Items[0].ID != job.ID {
+				t.Fatalf("list items=%+v want %s", listed.Items, job.ID)
+			}
 			return
 		}
 	}
