@@ -10,6 +10,19 @@ import (
 	"github.com/yixian-huang/imgli/internal/model"
 )
 
+func TestHeicGroupsMissing(t *testing.T) {
+	ok := model.UserGroup{Name: "默认组", AllowedExts: []string{"png", "heic", "heif"}}
+	bad := model.UserGroup{Name: "锁 png", AllowedExts: []string{"png"}}
+	heicOnly := model.UserGroup{ID: 9, AllowedExts: []string{"heic"}}
+	got := heicGroupsMissing([]model.UserGroup{ok, bad, heicOnly})
+	if len(got) != 2 || got[0] != "锁 png" || got[1] != "#9" {
+		t.Fatalf("got %v", got)
+	}
+	if groupAllowsHeicHeif([]string{"HEIC", "Heif"}) != true {
+		t.Fatal("case fold")
+	}
+}
+
 func TestCheckBaseURL(t *testing.T) {
 	lv, _ := CheckBaseURL("")
 	if lv != Fail {

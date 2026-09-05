@@ -88,6 +88,111 @@ func TestSeedDoesNotRewriteExistingGroupExts(t *testing.T) {
 	}
 }
 
+func TestIsStockRasterExts(t *testing.T) {
+	if !IsStockRasterExts([]string{"png", "jpg", "jpeg", "gif", "webp"}) {
+		t.Fatal("canonical five")
+	}
+	if !IsStockRasterExts([]string{"WEBP", "Gif", "jpeg", "JPG", "PNG"}) {
+		t.Fatal("order and case")
+	}
+	if IsStockRasterExts([]string{"png", "jpg", "jpeg", "gif", "webp", "heic", "heif"}) {
+		t.Fatal("already has heic")
+	}
+	if IsStockRasterExts([]string{"png"}) {
+		t.Fatal("custom png-only")
+	}
+	if IsStockRasterExts([]string{"png", "jpg", "jpeg", "gif", "webp", "png"}) {
+		t.Fatal("duplicate")
+	}
+}
+
+func TestMigrateStockGroupHeicExts(t *testing.T) {
+	db := TestDB(t)
+	if err := db.Model(&UserGroup{}).Where("is_default = ?", true).
+		Update("allowed_exts", `["png","jpg","jpeg","gif","webp"]`).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Model(&UserGroup{}).Where("is_guest = ?", true).
+		Update("allowed_exts", `["webp","gif","jpeg","jpg","png"]`).Error; err != nil {
+		t.Fatal(err)
+	}
+	custom := UserGroup{Name: "pngonly", AllowedExts: []string{"png"}}
+	if err := db.Create(&custom).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := migrateStockGroupHeicExts(db); err != nil {
+		t.Fatal(err)
+	}
+	var def, guest, pngonly UserGroup
+	if err := db.Where("is_default = ?", true).First(&def).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Where("is_guest = ?", true).First(&guest).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.First(&pngonly, custom.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if !hasExt(def.AllowedExts, "heic") || !hasExt(def.AllowedExts, "heif") {
+		t.Fatalf("default: %v", def.AllowedExts)
+	}
+	if !hasExt(guest.AllowedExts, "heic") || !hasExt(guest.AllowedExts, "heif") {
+		t.Fatalf("guest: %v", guest.AllowedExts)
+	}
+	if hasExt(pngonly.AllowedExts, "heic") || hasExt(pngonly.AllowedExts, "heif") {
+		t.Fatalf("custom group must stay png-only: %v", pngonly.AllowedExts)
+	}
+	if err := migrateStockGroupHeicExts(db); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Where("is_default = ?", true).First(&def).Error; err != nil {
+		t.Fatal(err)
+	}
+	nHeic := 0
+	for _, e := range def.AllowedExts {
+		if e == "heic" {
+			nHeic++
+		}
+	}
+	if nHeic != 1 {
+		t.Fatalf("second run duplicated heic: %v", def.AllowedExts)
+	}
+}
+
+func TestSchemaV9StockHeicOnce(t *testing.T) {
+	db := TestDB(t)
+	if err := db.Where("version = ?", 9).Delete(&SchemaVersion{}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Model(&UserGroup{}).Where("is_default = ?", true).
+		Update("allowed_exts", `["png","jpg","jpeg","gif","webp"]`).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := applySchemaV9StockHeic(db); err != nil {
+		t.Fatal(err)
+	}
+	var def UserGroup
+	if err := db.Where("is_default = ?", true).First(&def).Error; err != nil {
+		t.Fatal(err)
+	}
+	if !hasExt(def.AllowedExts, "heic") {
+		t.Fatalf("v9 should append: %v", def.AllowedExts)
+	}
+	if err := db.Model(&UserGroup{}).Where("is_default = ?", true).
+		Update("allowed_exts", `["png","jpg","jpeg","gif","webp"]`).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := applySchemaV9StockHeic(db); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Where("is_default = ?", true).First(&def).Error; err != nil {
+		t.Fatal(err)
+	}
+	if hasExt(def.AllowedExts, "heic") {
+		t.Fatalf("v9 must not re-run: %v", def.AllowedExts)
+	}
+}
+
 func TestMigratePrivateAlbumImages(t *testing.T) {
 	db := TestDB(t)
 	u := User{Username: "m", Email: "m@img.li", GroupID: 1}

@@ -95,7 +95,7 @@ Probe of a HEIC file on `false` must return a **distinct** error (`ErrHeicUnavai
 ### 3.7 Groups and CLI
 
 - **New** default + guest group seeds: append `heic`, `heif` to `["png","jpg","jpeg","gif","webp"]`.
-- **Existing** rows: no migration rewrite of `allowed_exts`. Operators add the two names in Admin → Groups.
+- **Existing** rows: no migration rewrite of `allowed_exts` in v0.9.17. **v0.9.18** one-shot schema v9 appends `heic`/`heif` only when `allowed_exts` is exactly the pre-0.9.17 five (`png,jpg,jpeg,gif,webp`). Custom lists stay untouched.
 - `imgli import-dir` suffix map: add `.heic`, `.heif`. Decode still happens on the server; CLI does not transcode locally.
 - Web upload: `accept="image/*"` stays; client-side ext gate follows the session/guest `allowed_exts` list (so iPhone files are choosable once the group allows them).
 
